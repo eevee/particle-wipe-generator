@@ -57,7 +57,7 @@ button {
     display: grid;
     grid-template-columns: max-content min-content 2em;
     row-gap: 0.25em;
-    align-items: center;
+    column-gap: 0.5em;
 }
 #generator .control-grid label {
     display: contents;
@@ -68,6 +68,7 @@ button {
 #generator .control-grid input {
     grid-column: 2;
 }
+#generator .control-grid input[type=checkbox],
 #generator .control-grid select {
     grid-column: 2 / 4;
 }
@@ -83,4 +84,22 @@ button {
     /* FIXME using percentage width here is not actually correct and only works by accident i guess???  do i need to js this????? */
     /* width: 33.3%; */
     width: 277px;
+}
+
+#generator .playback-controls {
+    display: flex;
+    column-gap: 0.5em;
+    margin: 0 0.5em;
+}
+#generator .playback-controls #knob-play {
+    flex: 0 auto;
+    min-width: 1.5em;
+}
+#generator .playback-controls #knob-progress {
+    flex: 1 auto;
+}
+#generator .playback-controls output {
+    flex: 0 auto;
+    align-self: center;
+    text-align: center;
 }

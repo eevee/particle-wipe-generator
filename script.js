@@ -1,3 +1,5 @@
+const tau = Math.PI * 2;
+
 // WEBGL HELPER STUFF ----------------------------------------------------------
 
 const vertex_shader_source = `
@@ -20,8 +22,10 @@ const fragment_shader_source = `
     precision mediump float;
      
     uniform sampler2D mask;
-    uniform vec4 before_color;
-    uniform vec4 after_color;
+    uniform sampler2D before;
+    uniform sampler2D after;
+    //uniform vec4 before_color;
+    //uniform vec4 after_color;
     uniform float t;
     uniform float ramp;
 
@@ -33,12 +37,13 @@ const fragment_shader_source = `
     }
 
     void main() {
-        vec4 pixel = after_color;
+        //vec4 pixel = after_color;
+        vec4 pixel = texture2D(after, tex_coords);
         float discriminator = texture2D(mask, tex_coords).r;
         float scaled_t = t * (1.0 + ramp * 2.0) - ramp;
         float alpha = clamp((scaled_t - discriminator) / ramp + 0.5, 0.0, 1.0);
         pixel.a *= alpha;
-        gl_FragColor = alpha_composite(pixel, before_color);
+        gl_FragColor = alpha_composite(pixel, texture2D(before, tex_coords));
     }
 `;
 
@@ -77,7 +82,7 @@ class Shader {
         }
 
         this.uniforms = {};
-        let texture_index = 0;
+        let texture_index = 1;  // reserve slot 0 for fucking around in js-land
         const uniform_ct = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
         for (let i = 0; i < uniform_ct; i++) {
             const info = gl.getActiveUniform(program, i);
@@ -132,7 +137,7 @@ class Shader {
                 throw new Error("Expected a Texture");
             }
 
-            gl.activeTexture([gl.TEXTURE1, gl.TEXTURE2][uniform.texture_index]);
+            gl.activeTexture(gl.TEXTURE0 + uniform.texture_index);
             gl.bindTexture(gl.TEXTURE_2D, value.texture);
             // Use texture 0 for general-purpose...  whatevering
             gl.activeTexture(gl.TEXTURE0);
@@ -157,6 +162,15 @@ class Texture {
         // Fix wrapping
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        // Semi-automatically detect when a canvas needs reuploading
+        if (image.tagName === 'CANVAS') {
+            image.addEventListener('_updated', event => {
+                console.log("aha!  re-uploading");
+                gl.bindTexture(gl.TEXTURE_2D, this.texture);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+            });
+        }
     }
 }
 
@@ -191,6 +205,9 @@ class WipePlayer {
             this.pause();
             this.set_time(parseFloat(event.target.value));
         });
+        this.time_slider_value = document.createElement('output');
+        this.time_slider.parentNode.insertBefore(this.time_slider_value, this.time_slider.nextSibling);
+        this.set_time(parseFloat(this.time_slider.value));
     }
 
     play() {
@@ -205,7 +222,7 @@ class WipePlayer {
             this.set_time(0);
         }
 
-        this.play_pause_button.textContent = '⏸️';
+        this.play_pause_button.textContent = '▮▮';
     }
 
     pause() {
@@ -219,6 +236,7 @@ class WipePlayer {
         this.schedule_render();
 
         this.time_slider.value = String(t);
+        this.time_slider_value.textContent = t.toFixed(3);
     }
 
     schedule_render() {
@@ -249,9 +267,10 @@ class WipePlayer {
 // WEBGL WIPEPLAYER ------------------------------------------------------------
 
 class WipePlayerGL extends WipePlayer {
-    constructor(gl, mask_canvas) {
-        super(gl.canvas, mask_canvas);
+    constructor(...args) {
+        super(...args);
 
+        let gl = this.canvas.getContext('webgl');
         this.gl = gl;
         this.shader = new Shader(gl, vertex_shader_source, fragment_shader_source);
 
@@ -272,8 +291,10 @@ class WipePlayerGL extends WipePlayer {
         gl.bindBuffer(gl.ARRAY_BUFFER, position_buf);
         gl.vertexAttribPointer(this.shader.attributes['a_position'].loc, 2, gl.FLOAT, false, 0, 0)
 
-        // Create the mask texture
-        this.mask_texture = new Texture(gl, mask_canvas);
+        // Wrap the canvases in textures
+        this.mask_texture = new Texture(gl, this.mask_canvas);
+        this.before_texture = new Texture(gl, this.before_canvas);
+        this.after_texture = new Texture(gl, this.after_canvas);
 
         // Set up some common drawing stuff
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -281,13 +302,18 @@ class WipePlayerGL extends WipePlayer {
 
         gl.useProgram(this.shader.program);
         this.shader.send('mask', this.mask_texture);
-        this.shader.send('before_color', [1, 0.5, 0, 1]);
-        this.shader.send('after_color', [0, 1, 0.5, 1]);
+        //this.shader.send('before_color', [1, 0.5, 0, 1]);
+        //this.shader.send('after_color', [0, 1, 0.5, 1]);
+        this.shader.send('before', this.before_texture);
+        this.shader.send('after', this.after_texture);
         this.shader.send('ramp', 4/256);
     }
 
     set_time(t) {
-        this.shader.send('t', t);
+        // This is called from the parent constructor, before the shader exists...
+        if (this.shader) {
+            this.shader.send('t', t);
+        }
         super.set_time(t);
     }
 
@@ -383,24 +409,6 @@ class WipePlayerCanvas extends WipePlayer {
     }
 }
 
-window.addEventListener('load', init);
-
-function gl_init() {
-    let canvas = document.getElementById('canvas');
-    let gl = canvas.getContext('webgl');
-
-    if (gl === null) {
-        // FIXME fall back to regular canvas
-        return;
-    }
-
-    // -- Draw i guess --
-
-    let player = new WipePlayerGL(gl, document.getElementById('mask'));
-
-    player.play();
-}
-
 
 // A "pattern" is the order in which the wipe's cells are revealed.  Each cell
 // is associated with a "step", which is an integer starting from zero.  The
@@ -410,12 +418,19 @@ function gl_init() {
 // the max step is one less than the number of rows.
 // Note that it's possible to query cells OUTSIDE the grid, in which case the
 // resulting step might be less than zero or more than the max step.  This can
-// happen if the particle may start outside the mask and expand into it.
+// happen if the particle may start outside the mask and expand into it.  Only
+// the immediate outer border is allowed to be queried this way.
 class PatternGenerator {
     constructor(row_ct, column_ct) {
         this.row_ct = row_ct;
         this.column_ct = column_ct;
-        this.max_step = this._get_max_step();
+    }
+
+    get max_step() {
+        const max_step = this._get_max_step();
+        // Overwrite the getter with a regular property
+        Object.defineProperty(this, 'max_step', { value: max_step });
+        return max_step;
     }
 
     _get_max_step() {
@@ -525,6 +540,89 @@ class BoxPattern extends PatternGenerator {
     }
 }
 
+class SpiralPattern extends PatternGenerator {
+    constructor(...args) {
+        super(...args);
+        // FIXME allow these as args
+        // FIXME also accept a start rotation
+        // FIXME allow squashing instead of clipping
+        this.fill_delay = 3;
+        this.spiral_ct = 3;
+    }
+
+    _get_max_step() {
+        // FIXME this multiplier is to make 'delay' kinda work, but it should probably do something clever involving guessing how many cells are in a spiral so that they ROUGHLY start one after another, and also maybe we should do that per-cell too
+        // FIXME this isn't big enough in some cases, urgh
+        return 16 * (1 + this.spiral_ct + (1 + 1 / this.fill_delay) / 2);
+    }
+
+    cell(r, c) {
+        let x, y, w;
+        if (true) {
+            // Trim -- use circular spirals
+            x = (this.column_ct / 2) - (c + 0.5);
+            y = (this.row_ct / 2) - (r + 0.5);
+
+            // Width of each spiral
+            // TODO angle matters
+            w = (Math.max(this.row_ct, this.column_ct) / 2) / this.spiral_ct;
+        }
+        else {
+            // Squash -- fit spiral to the shape of the grid
+            // Here, units are normalized
+            x = (c + 0.5) / this.column_ct - 0.5;
+            y = (r + 0.5) / this.row_ct - 0.5;
+
+            w = 0.5 / this.spiral_ct;
+        }
+
+        // Distance this cell is from the center, in spiral widths
+        const d = Math.sqrt(x*x + y*y) / w;
+
+        const theta = Math.atan2(y, x) + tau / 2;
+        // How far out spirals start at this angle, in fractions of a spiral (0 to 1)
+        const offset = theta / tau;
+        // Nearest spiral (towards the center), and the distance from it
+        const nearest_spiral = Math.floor(d - offset);
+        const dist_to_spiral = Math.abs(nearest_spiral + offset - d);
+        // How far along the spiral this point is, in revolutions
+        const t = nearest_spiral + theta / tau;
+        // The spiral itself increases by steps, and then fills in the gaps between
+        // The cell might start from either the inner or outer spirals, so just
+        // try both and use whichever happens sooner
+        return 16 * Math.min(
+            t + dist_to_spiral * this.fill_delay,
+            t + 1 + (1 - dist_to_spiral) * this.fill_delay
+        );
+    }
+}
+
+// FIXME should this try to enforce that cells aren't left to grow until they hit a wall?  or should i make the generator smarter and willing to keep looking (!)
+class RandomPattern extends PatternGenerator {
+    constructor(...args) {
+        super(...args);
+
+        const range = this.max_step;
+        this.cells = [];
+        for (let r = 0; r < this.row_ct + 2; r++) {
+            let row = [];
+            for (let c = 0; c < this.column_ct + 2; c++) {
+                row.push(Math.floor(Math.random() * range));
+            }
+            this.cells.push(row);
+        }
+    }
+
+    _get_max_step() {
+        // FIXME probably oughta be configurable and based on the number of cells
+        return 16;
+    }
+
+    cell(r, c) {
+        return this.cells[r + 1][c + 1];
+    }
+}
+
 // Wrappers that can apply to any type of generator
 class PatternWrapper {
     constructor(pattern) {
@@ -625,12 +723,12 @@ const PATTERN_GENERATORS = {
     // "Spiral" is a cool spiral from the center
     spiral: {
         // FIXME still not sure how to do this
-        //generator: SpiralPattern,
+        generator: SpiralPattern,
     },
     // "Random" is, well, random
     random: {
         // FIXME slightly more complicated
-        //generator: RandomPattern,
+        generator: RandomPattern,
     },
     // TODO opposite corners too?
     // TODO wipe fall a la doom?
@@ -696,7 +794,6 @@ class GeneratorView {
                 console.log('ok');
                 ctx.clearRect(0, 0, w, h);
                 ctx.beginPath();
-                const tau = Math.PI * 2;
                 // TODO probably use a function dict for this
                 if (shape === 'diamond') {
                     ctx.moveTo(0, h/2);
@@ -875,59 +972,6 @@ class GeneratorView {
     }
 }
 
-function init() {
-    "use strict";
-    let canvas = document.getElementById('canvas');
-    let ctx = canvas.getContext('2d');
-
-    let mask_canvas = document.getElementById('mask-canvas');
-    let width = canvas.width;
-    let height = canvas.height;
-
-    let mask_ctx = mask_canvas.getContext('2d');
-
-    // Populate the mask
-    // TODO probably ensure the mask is the same size or whatever
-    let particle = document.getElementById('particle');
-    //generate_particle_wipe_mask(particle, mask_canvas, 7, 13, 0.0625, 'column');
-
-    let view = new GeneratorView(document.querySelector('#generator .particle'), mask_canvas);
-
-    // Deal with the playback canvases
-    // TODO allow dropping images here
-    // FIXME extend this to webgl too, allow changing colors, etc.
-    let before_canvas = document.getElementById('before-canvas');
-    let before_control = document.getElementById('before-color');
-    before_control.addEventListener('change', event => {
-        let ctx = before_canvas.getContext('2d');
-        ctx.fillStyle = before_control.value;
-        ctx.fillRect(0, 0, before_canvas.width, before_canvas.height);
-        player.schedule_render();
-    });
-    {
-        let ctx = before_canvas.getContext('2d');
-        ctx.fillStyle = before_control.value;
-        ctx.fillRect(0, 0, before_canvas.width, before_canvas.height);
-    }
-
-    let after_canvas = document.getElementById('after-canvas');
-    let after_control = document.getElementById('after-color');
-    after_control.addEventListener('change', event => {
-        let ctx = after_canvas.getContext('2d');
-        ctx.fillStyle = after_control.value;
-        ctx.fillRect(0, 0, after_canvas.width, after_canvas.height);
-        player.schedule_render();
-    });
-    {
-        let ctx = after_canvas.getContext('2d');
-        ctx.fillStyle = after_control.value;
-        ctx.fillRect(0, 0, after_canvas.width, after_canvas.height);
-    }
-
-    let player = new WipePlayerCanvas(canvas, mask_canvas, before_canvas, after_canvas);
-}
-
-
 function* trace_line(x0, y0, x1, y1) {
     "use strict";
     let dx = x1 - x0;
@@ -1047,11 +1091,6 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
         let box_scale_row = [];
         box_scales.push(box_scale_row);
         for (let px = 0; px < column_width * 3; px++) {
-            // Relative position of the pixel, from -0.5 to 0.5
-            // FIXME this is dumb
-            let x = (px + 0.5) / (column_width * 3) - 0.5;
-            let y = (py + 0.5) / (row_height * 3) - 0.5;
-
             // Consider the pixel as having been hit when its center is touched
             const dx = (px + 0.5) - mid_x;
             const dy = (py + 0.5) - mid_y;
@@ -1067,7 +1106,7 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
                 // very first pixel to light.  This math will explode since the
                 // distance is zero, but we can call this a scale of zero and
                 // continue on.
-                box_scale_row.append(0);
+                box_scale_row.push(0);
                 continue;
             }
 
@@ -1093,10 +1132,6 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
                 // point, and the center to the found point; the ratio of those is
                 // how much bigger the particle needs to be for this point to become
                 // visible
-                // FIXME oh but what if the gat dang particle is only a single lit
-                // pixel in the center, making the distance zero?  it's not ACTUALLY
-                // zero because pixels aren't zero-size...  maybe account for this
-                // later.
                 const dist_to_entry2 = Math.pow(ix - pcx, 2) + Math.pow(iy - pcy, 2);
                 const dist_to_hit2 = Math.pow(ax - pcx, 2) + Math.pow(ay - pcy, 2);
                 hit_scale = Math.sqrt(dist_to_entry2 / dist_to_hit2);
@@ -1133,17 +1168,6 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
     }
     stamp_ctx.putImageData(stamp_pixels, 0, 0);
     document.body.appendChild(stamp_canvas);
-
-    /*
-    for row in box_scales:
-        for scale in row:
-            print(f"{scale:5.2f}", end=' ')
-            #print(' .:*@#'[int(scale / max_scale * 5.999)], end='')
-        print()
-
-    print("MAX SCALE:", max_scale)
-    print()
-    */
 
     // Total time factor, as a multiple of how long a single step takes.
     // If delay is 0, this is 1; if delay is 1, this is the number of steps.
@@ -1194,6 +1218,10 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
 
     // FIXME i realize, all of a sudden, that in cases like squares, you likely
     // don't WANT them to keep growing outside their box.  hmm
+    // TODO could this part be done with a shader?  it's basically just adding
+    // and maxing some pixel values, right?  even a bunch of draw calls, one
+    // stamp at a time, might be faster
+    // FIXME i think this would be a bit speedier if it worked a cell at a time?
     let i = 0;
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
@@ -1209,6 +1237,7 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
 
             let scales = [];
             let scale_steps = [];
+            // FIXME keep looking further until we find a cell whose step is adjacent to ours?
             for (let drow = 0; drow < 3; drow++) {
                 // drow/dcol measure where on the /stamp/ we're sampling from,
                 // so the actual cell the particle would be expanding from is
@@ -1244,14 +1273,104 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
     }
 
     ctx.putImageData(pixels, 0, 0);
+
+    ctx = null;
+    out_canvas.dispatchEvent(new Event('_updated'));
+}
+
+
+
+
+window.addEventListener('load', init);
+function gl_init() {
+    let canvas = document.getElementById('canvas');
+    let gl = canvas.getContext('webgl');
+
+    if (gl === null) {
+        // FIXME fall back to regular canvas
+        return;
+    }
+
+    // -- Draw i guess --
+
+    let player = new WipePlayerGL(gl, document.getElementById('mask'));
+
+    player.play();
+}
+
+function init() {
+    "use strict";
+    let canvas = document.getElementById('canvas');
+
+    let mask_canvas = document.getElementById('mask-canvas');
+    let width = canvas.width;
+    let height = canvas.height;
+
+    let mask_ctx = mask_canvas.getContext('2d');
+
+    // Populate the mask
+    // TODO probably ensure the mask is the same size or whatever
+    let particle = document.getElementById('particle');
+    //generate_particle_wipe_mask(particle, mask_canvas, 7, 13, 0.0625, 'column');
+
+    let view = new GeneratorView(document.querySelector('#generator .particle'), mask_canvas);
+
+    // Deal with the playback canvases
+    // TODO allow dropping images here
+    // FIXME extend this to webgl too, allow changing colors, etc.
+    let before_canvas = document.getElementById('before-canvas');
+    let before_control = document.getElementById('before-color');
+    before_control.addEventListener('change', event => {
+        let ctx = before_canvas.getContext('2d');
+        ctx.fillStyle = before_control.value;
+        ctx.fillRect(0, 0, before_canvas.width, before_canvas.height);
+        before_canvas.dispatchEvent(new Event('_updated'));
+        player.schedule_render();
+    });
+    {
+        let ctx = before_canvas.getContext('2d');
+        ctx.fillStyle = before_control.value;
+        ctx.fillRect(0, 0, before_canvas.width, before_canvas.height);
+    }
+
+    let after_canvas = document.getElementById('after-canvas');
+    let after_control = document.getElementById('after-color');
+    after_control.addEventListener('change', event => {
+        let ctx = after_canvas.getContext('2d');
+        ctx.fillStyle = after_control.value;
+        ctx.fillRect(0, 0, after_canvas.width, after_canvas.height);
+        after_canvas.dispatchEvent(new Event('_updated'));
+        player.schedule_render();
+    });
+    {
+        let ctx = after_canvas.getContext('2d');
+        ctx.fillStyle = after_control.value;
+        ctx.fillRect(0, 0, after_canvas.width, after_canvas.height);
+    }
+
+    let player;
+    // FIXME why do i get "exceeded 16 live webgl contexts for this principal"???
+    let gl = canvas.getContext('webgl');
+    console.log('using gl?', gl);
+    if (gl) {
+        //player = new WipePlayerCanvas(canvas, mask_canvas, before_canvas, after_canvas);
+        player = new WipePlayerGL(canvas, mask_canvas, before_canvas, after_canvas);
+    }
+    else {
+        player = new WipePlayerCanvas(canvas, mask_canvas, before_canvas, after_canvas);
+    }
+    console.log(gl);
 }
 
 
 // TODO:
+// - default to diamond?
 // - need some way of indicating when rows/columns are not remotely proportional
+// - also indicate when settings have changed but the wipe hasn't been regenerated yet
 // - not sure that i handle rows that don't divide evenly very well yet
 // - should including the outer border be optional??
-// - obviously support dragging files in
+// - obviously support dragging files in, and i guess upload button or whatever
+// - make this a generator and yield intermittently so the browser doesn't like, completely freeze, even if that makes it a bit slower overall
 // - support hex or tri grids?
 // - support offsetting every other column or something???  that would be cool with hearts
 // - support (both generation and playback) higher-definition masks using all three channels.  actually this might even be compatible since the extra channels would just be extra detail?  depends how ren'py does it, does it just read the red channel?
