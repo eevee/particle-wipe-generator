@@ -1,0 +1,86 @@
+body {
+    background: #666;
+    color: white;
+}
+
+input, label, button {
+    vertical-align: middle;
+}
+button {
+    box-sizing: content-box;
+    /* Apply minimum width and height to ensure the preset particle buttons are
+     * all the same size (despite emoji/symbol variation), and the play/pause
+     * button doesn't change size when its label changes */
+    min-width: 1em;
+    min-height: 1.66em;
+    text-align: center;
+}
+
+#generator {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    column-gap: 1em;
+}
+
+#generator canvas {
+    border: 2px solid #444;
+}
+#generator figure {
+    xdisplay: flex;
+    margin: 0.5em 0;
+    flex-direction: column;
+}
+#generator figure canvas {
+    display: block;
+}
+#generator figure figcaption {
+    padding: 0.25em 0.5em;
+    background: #444;
+}
+
+#generator .particle {
+    flex: 0;
+}
+#generator .main-canvas {
+    flex: 0;
+}
+#generator .parts {
+    flex: 0;
+}
+
+#generator .particle #preview {
+    width: 100%;
+    box-sizing: border-box;
+}
+#generator .control-grid {
+    display: grid;
+    grid-template-columns: max-content min-content 2em;
+    row-gap: 0.25em;
+    align-items: center;
+}
+#generator .control-grid label {
+    display: contents;
+}
+#generator .control-grid label.hidden {
+    display: none;
+}
+#generator .control-grid input {
+    grid-column: 2;
+}
+#generator .control-grid select {
+    grid-column: 2 / 4;
+}
+#generator .control-grid output {
+    grid-column: 3;
+}
+#generator #control-generate {
+    box-sizing: border-box;
+    width: 100%;
+}
+
+#generator .parts canvas {
+    /* FIXME using percentage width here is not actually correct and only works by accident i guess???  do i need to js this????? */
+    /* width: 33.3%; */
+    width: 277px;
+}

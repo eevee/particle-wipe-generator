@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf8">
+    <title>Particle Wipe Generator</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <script src="script.js"></script>
+</head>
+<body>
+    <div id="generator">
+        <div class="particle">
+            <figure>
+                <canvas id="particle-canvas" width="256" height="256"></canvas>
+                <figcaption>Particle (256×256)</figcaption>
+            </figure>
+            <button class="control-preset-particle" value="diamond">◆</button>
+            <button class="control-preset-particle" value="circle">●</button>
+            <button class="control-preset-particle" value="heart">♥️</button>
+            <button class="control-preset-particle" value="star">★</button>
+            <p>Or drag in your own image!  Just make sure it has alpha.</p>
+            <!--
+            <div class="control-grid">
+                <label for="control-rows">Rows</label>
+                <input id="control-rows" type="range" min="1" max="32" value="16">
+
+                <label for="control-cols">Columns</label>
+                <input id="control-cols" type="range" min="1" max="64" value="9">
+
+                <label for="control-cols">Delay</label>
+                <input id="control-delay" type="range" min="0" max="2" step="0.03125">
+
+                <label for="control-pattern">Pattern</label>
+                <select id="control-pattern">
+                    <option value="row">Rows</option>
+                    <option value="column">Columns</option>
+                    <option value="rowalt">Rows alternating</option>
+                    <option value="rowcorner">Row pinch</option>
+                    <option value="columncorner">Column pinch</option>
+                    <option value="allcorner">Corners inwards</option>
+                    <option value="spiral">Spiral</option>
+                    <option value="random">Random</option>
+                </select>
+                <label><input type="checkbox"> Reverse direction</label>
+            </div>
+            -->
+            <div class="control-grid">
+                <label>
+                    Rows
+                    <input id="control-rows" type="range" min="1" max="32" value="16">
+                </label>
+
+                <label>
+                    Columns
+                    <input id="control-cols" type="range" min="1" max="64" value="9">
+                </label>
+
+                <label>
+                    Delay
+                    <input id="control-delay" type="range" min="0" max="2" step="0.03125">
+                </label>
+
+                <label>
+                    Pattern
+                    <select id="control-pattern">
+                        <option value="wipe">wipe</option>
+                        <!-- one of four cardinal directions -->
+                        <!-- FIXME orrrr one of four diagonal directions? -->
+                        <!-- interlacing -->
+                        <option value="curtain">curtain</option>
+                        <!-- one of four cardinal directions -->
+                        <!-- interlacing? -->
+                        <option value="shutter">shutter</option>
+                        <!-- vert, horiz, or either diagonal -->
+                        <!-- interlacing? -->
+                        <option value="diamond">diamond</option>
+                        <!-- interlacing? -->
+                        <option value="box">box</option>
+                        <!-- interlacing? -->
+                        <option value="spiral">spiral</option>
+                        <option value="random">random</option>
+                        <!-- density? -->
+                        <!--
+                        <option value="row">Rows</option>
+                        <option value="column">Columns</option>
+                        <option value="rowalt">Rows alternating</option>
+                        <option value="rowcorner">Row pinch</option>
+                        <option value="columncorner">Column pinch</option>
+                        <option value="allcorner">Corners inwards</option>
+                        <option value="spiral">Spiral</option>
+                        <option value="random">Random</option>
+                        -->
+                        <!-- TODO from a single corner also -->
+                    </select>
+                </label>
+                <!-- Optional pattern settings -->
+                <label>
+                    Direction
+                    <select id="control-direction">
+                        <option value="right">right</option>
+                        <option value="left">left</option>
+                        <option value="down">down</option>
+                        <option value="up">up</option>
+                    </select>
+                </label>
+                <label>
+                    Direction
+                    <select id="control-direction2">
+                        <option value="horizontal">horizontal</option>
+                        <option value="vertical">vertical</option>
+                        <option value="main-diagonal">main diagonal</option>
+                        <option value="off-diagonal">off diagonal</option>
+                    </select>
+                </label>
+                <!-- Generic pattern settings -->
+                <label>
+                    Interlace
+                    <input id="control-interlace" type="range" min="1" max="8" value="1">
+                    <output></output>
+                </label>
+                <label>
+                    Reverse
+                    <input id="control-reverse" type="checkbox">
+                </label>
+                <label>
+                    Mirror
+                    <input id="control-mirror" type="checkbox">
+                </label>
+                <label>
+                    Flip
+                    <input id="control-flip" type="checkbox">
+                </label>
+            </div>
+            <figure>
+                <canvas id="preview" width="208" height="112"></canvas>
+                <figcaption>Preview</figcaption>
+            </figure>
+            <button id="control-generate">Generate</button>
+        </div>
+        <div class="main-canvas">
+            <figure>
+                <canvas id="canvas" width="832" height="448"></canvas>
+                <figcaption>Resulting wipe</figcaption>
+            </figure>
+            <div class="controls">
+                <p>
+                    <button id="knob-play">▶️</button>
+                    <input id="knob-progress" type="range" min="0" max="1" step="any" value="0">
+                </p>
+                <p>Total time in <select><option>frames</option><option>seconds</option></select>: <input type="range"> 3 frames</p>
+                <p>Ramp: <input type="range" min="0.00390625" max="1" step="0.00390625"></p>
+            </div>
+        </div>
+        <div class="parts">
+            <figure>
+                <canvas id="before-canvas" width="832" height="448"></canvas>
+                <figcaption>Before — <input id="before-color" type="color" value="#ff8000"></figcaption>
+            </figure>
+            <figure>
+                <canvas id="mask-canvas" width="832" height="448"></canvas>
+                <figcaption>Generated mask</figcaption>
+            </figure>
+            <figure>
+                <canvas id="after-canvas" width="832" height="448"></canvas>
+                <figcaption>After — <input id="after-color" type="color" value="#00ff80"></figcaption>
+            </figure>
+        </div>
+    </div>
+    <p>Careful!  There are only 256 possible gray values, so there can only be 256 "steps" in the animation.  A large column delay, or a long duration, will spread the steps out and cause visible ringing.</p>
+    <p>Also!  The algorithm this uses is very precise, <em>but</em> assumes that the particle will never need to grow bigger than three times the size of a cell.  If your particle isn't solid in the middle, or you have especially long delays, you may get weird results.</p>
+</body>
+</html>
