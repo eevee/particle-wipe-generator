@@ -750,6 +750,53 @@ function generate_cell_pattern(rows, cols, pattern_generator) {
     return [pattern, step_ct];
 }
 
+const PRESET_PARTICLES = {
+    diamond(ctx, w, h) {
+        ctx.moveTo(0, h/2);
+        ctx.lineTo(w/2, 0);
+        ctx.lineTo(w, h/2);
+        ctx.lineTo(w/2, h);
+    },
+
+    circle(ctx, w, h) {
+        ctx.ellipse(w/2, h/2, w/2, h/2, 0, 0, tau);
+    },
+
+    // FIXME this is, broken
+    heart(ctx, w, h) {
+        ctx.moveTo(0, h/2);
+        ctx.lineTo(w/2, h);
+        ctx.lineTo(w, h/2);
+        ctx.arc(w*3/4, h/4, w/4, tau/8, 4*tau/8, true);
+        ctx.arc(w/4, h/4, w/4, 7*tau/8, 3*tau/8, true);
+    },
+
+    // TODO extend into generic polygon/star?
+    star(ctx, w, h) {
+        const r = w/2;
+        // Ratio of the inner (dimple) radius to the outer radius
+        const r2 = r * Math.sqrt((7 - 3 * Math.sqrt(5)) / 2);
+        // Surprise!  This vertically centers the star
+        const x0 = w/2;
+        const y0 = h/2 + r2 / 4;
+        for (let i = 0; i < 5; i++) {
+            const x = x0 + r * Math.cos(tau * (0.75 + i / 5));
+            const y = y0 + r * Math.sin(tau * (0.75 + i / 5));
+
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            }
+            else {
+                ctx.lineTo(x, y);
+            }
+
+            const x2 = x0 + r2 * Math.cos(tau * (0.85 + i / 5));
+            const y2 = y0 + r2 * Math.sin(tau * (0.85 + i / 5));
+            ctx.lineTo(x2, y2);
+        }
+    },
+};
+
 class GeneratorView {
     constructor(container, mask_canvas) {
         this.container = container;
@@ -788,56 +835,11 @@ class GeneratorView {
         for (const button of document.querySelectorAll('button.control-preset-particle')) {
             button.addEventListener('click', event => {
                 const shape = event.target.value;
-                const ctx = this.particle_canvas.getContext('2d');
-                const w = this.particle_canvas.width;
-                const h = this.particle_canvas.height;
-                console.log('ok');
-                ctx.clearRect(0, 0, w, h);
-                ctx.beginPath();
-                // TODO probably use a function dict for this
-                if (shape === 'diamond') {
-                    ctx.moveTo(0, h/2);
-                    ctx.lineTo(w/2, 0);
-                    ctx.lineTo(w, h/2);
-                    ctx.lineTo(w/2, h);
-                }
-                else if (shape === 'circle') {
-                    ctx.ellipse(w/2, h/2, w/2, h/2, 0, 0, tau);
-                }
-                else if (shape === 'heart') {
-                    ctx.moveTo(0, h/2);
-                    ctx.lineTo(w/2, h);
-                    ctx.lineTo(w, h/2);
-                    ctx.arc(w*3/4, h/4, w/4, tau/8, 4*tau/8, true);
-                    ctx.arc(w/4, h/4, w/4, 7*tau/8, 3*tau/8, true);
-                }
-                else if (shape === 'star') {
-                    const r = w/2;
-                    // Ratio of the inner (dimple) radius to the outer radius
-                    const r2 = r * Math.sqrt((7 - 3 * Math.sqrt(5)) / 2);
-                    // Surprise!  This vertically centers the star
-                    const x0 = w/2;
-                    const y0 = h/2 + r2 / 4;
-                    for (let i = 0; i < 5; i++) {
-                        const x = x0 + r * Math.cos(tau * (0.75 + i / 5));
-                        const y = y0 + r * Math.sin(tau * (0.75 + i / 5));
-
-                        if (i === 0) {
-                            ctx.moveTo(x, y);
-                        }
-                        else {
-                            ctx.lineTo(x, y);
-                        }
-
-                        const x2 = x0 + r2 * Math.cos(tau * (0.85 + i / 5));
-                        const y2 = y0 + r2 * Math.sin(tau * (0.85 + i / 5));
-                        ctx.lineTo(x2, y2);
-                    }
-                }
-                ctx.closePath();
-                ctx.fill();
+                this.draw_preset_particle(shape);
             });
         }
+        // Diamond is a pretty reasonable default
+        this.draw_preset_particle('diamond');
 
         // And of course, bind the button
         document.getElementById('control-generate').addEventListener('click', event => {
@@ -903,6 +905,22 @@ class GeneratorView {
                 }
             }
         }
+    }
+
+    draw_preset_particle(shape) {
+        const draw = PRESET_PARTICLES[shape];
+        if (! draw) {
+            return;
+        }
+
+        const ctx = this.particle_canvas.getContext('2d');
+        const w = this.particle_canvas.width;
+        const h = this.particle_canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.beginPath();
+        draw(ctx, w, h);
+        ctx.closePath();
+        ctx.fill();
     }
 
     get_generator() {
@@ -1371,6 +1389,11 @@ function init() {
 // - should including the outer border be optional??
 // - obviously support dragging files in, and i guess upload button or whatever
 // - make this a generator and yield intermittently so the browser doesn't like, completely freeze, even if that makes it a bit slower overall
+//
 // - support hex or tri grids?
-// - support offsetting every other column or something???  that would be cool with hearts
+// - support offsetting every other column or something???  that would be cool with hearts!!
 // - support (both generation and playback) higher-definition masks using all three channels.  actually this might even be compatible since the extra channels would just be extra detail?  depends how ren'py does it, does it just read the red channel?
+//
+// - REALLY gotta fix the max time being wrong because of overlap, oops
+// - allow outer edge to exist, optionally?
+// - optionally allow disabling cell overlap entirely?
