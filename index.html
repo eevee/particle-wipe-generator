@@ -98,10 +98,29 @@
             <div class="main-canvas">
                 <figure>
                     <canvas id="canvas" width="1280" height="720"></canvas>
-                    <figcaption>Result in action</figcaption>
+                    <figcaption>
+                        <p>Result in action</p>
+                        <label>
+                            <input id="knob-use-halo" type="checkbox" checked>
+                            Use halo
+                        </label>
+                        <input id="knob-halo-color" type="color" value="#ff89b2">
+                    </figcaption>
                 </figure>
                 <p class="playback-controls">
                     <button id="knob-play">▶️</button>
+                    <!--
+                    FIXME how does "pingpong" actually work?  does it implicitly scale the time bar by two?  use some hidden thing to track whether we're going forwards or backwards??
+                    <select id="knob-play-mode">
+                        <option>normal</option>
+                        <option>switch before/after</option>
+                        <option>ping-pong</option>
+                    </select>
+                    -->
+                    <label>
+                        <input id="knob-play-loop" type="checkbox">
+                        Loop
+                    </label>
                     <input id="knob-progress" type="range" min="0" max="1" step="any" value="0">
                 </p>
                 <div class="other-playback-controls">

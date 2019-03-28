@@ -9,6 +9,9 @@ body {
 input, label, button {
     vertical-align: middle;
 }
+input[type=checkbox] {
+    vertical-align: text-bottom;
+}
 button {
     box-sizing: content-box;
     /* Apply minimum width and height to ensure the preset particle buttons are
@@ -145,6 +148,9 @@ input[type=range] {
     display: flex;
     column-gap: 0.5em;
     margin: 0 0.5em;
+}
+#generator .playback-controls label {
+    align-self: center;
 }
 #generator .playback-controls #knob-play {
     flex: 0 auto;

@@ -56,8 +56,7 @@ const fragment_shader_source = `
     uniform sampler2D mask;
     uniform sampler2D before;
     uniform sampler2D after;
-    //uniform vec4 before_color;
-    //uniform vec4 after_color;
+    uniform vec4 halo_color;
     uniform float t;
     uniform float ramp;
 
@@ -69,14 +68,30 @@ const fragment_shader_source = `
     }
 
     void main() {
-        //vec4 pixel = after_color;
-        vec4 pixel = texture2D(after, tex_coords);
+        vec4 before_pixel = texture2D(before, tex_coords);
+        vec4 after_pixel = texture2D(after, tex_coords);
         vec4 mask_pixel = texture2D(mask, tex_coords);
         float discriminator = mask_pixel.r + mask_pixel.g / 256.0 + mask_pixel.b / 65536.0;
         float scaled_t = t * (1.0 + ramp * 2.0) - ramp;
-        float alpha = clamp((scaled_t - discriminator) / ramp + 0.5, 0.0, 1.0);
-        pixel.a *= alpha;
-        gl_FragColor = alpha_composite(pixel, texture2D(before, tex_coords));
+        if (halo_color.a == 0.0) {
+            float alpha = clamp((scaled_t - discriminator) / ramp + 0.5, 0.0, 1.0);
+            after_pixel.a *= alpha;
+            gl_FragColor = alpha_composite(after_pixel, before_pixel);
+        }
+        else {
+            // Compute the alpha of the halo such that it's 1.0 when the
+            // discriminator matches exactly, and 0.0 just at the end of the ramp
+            float alpha = clamp(1.0 - abs(scaled_t - discriminator) / ramp, 0.0, 1.0);
+
+            vec4 halo = vec4(halo_color.rgb, alpha);
+            if (scaled_t < discriminator) {
+                gl_FragColor = alpha_composite(halo, before_pixel);
+            }
+            else {
+                gl_FragColor = alpha_composite(halo, after_pixel);
+            }
+            //gl_FragColor = vec4(alpha, scaled_t, discriminator, 1.0);
+        }
     }
 `;
 
@@ -216,11 +231,20 @@ class WipePlayer {
         this.before_canvas = before_canvas;
         this.after_canvas = after_canvas;
 
+        this.mask_canvas.addEventListener('_updated', e => {
+            this.schedule_render();
+        });
+
         this.t = 0;
         this.ramp = 4/256;
         this.duration = 2;
 
         this.playing = false;
+        this.loop = false;
+
+        // Allow subclasses to initialize stuff before we go calling hecka
+        // methods on ourselves
+        this._init();
 
         this.play_pause_button = document.getElementById('knob-play');
         this.play_pause_button.addEventListener('click', event => {
@@ -254,6 +278,40 @@ class WipePlayer {
         });
         this.ramp_slider_value = document.getElementById('knob-ramp-value');
         this.set_ramp(parseInt(this.ramp_slider.value, 10));
+
+        this.halo_picker = document.getElementById('knob-halo-color');
+        this.halo_checkbox = document.getElementById('knob-use-halo');
+        this.halo_picker.addEventListener('input', e => {
+            if (this.halo_color !== null) {
+                this.set_halo(this.halo_picker.value);
+            }
+        });
+        this.halo_checkbox.addEventListener('input', e => {
+            this.halo_picker.disabled = ! this.halo_checkbox.checked;
+            if (this.halo_checkbox.checked) {
+                this.set_halo(this.halo_picker.value);
+            }
+            else {
+                this.set_halo(null);
+            }
+        });
+        // FIXME Can we stop copy/pasting the event handlers
+        this.halo_picker.disabled = ! this.halo_checkbox.checked;
+        if (this.halo_checkbox.checked) {
+            this.set_halo(this.halo_picker.value);
+        }
+        else {
+            this.set_halo(null);
+        }
+
+        this.loop_checkbox = document.getElementById('knob-play-loop');
+        this.loop_checkbox.addEventListener('input', e => {
+            this.loop = e.target.checked;
+        });
+        this.loop = this.loop_checkbox.checked;
+    }
+
+    _init() {
     }
 
     play() {
@@ -294,7 +352,25 @@ class WipePlayer {
     // Sets ramp, as an integer from 1 to 256
     set_ramp(ramp) {
         this.ramp = ramp / 256;
+        this.schedule_render();
+
         this.ramp_slider_value.textContent = `${ramp}/256 ≈ ${(ramp / 256).toFixed(3)}`;
+    }
+
+    // Sets the halo color, which is an #rrggbb hex string or null, and stores
+    // it as an array of three integers up to 255
+    set_halo(halo_hex) {
+        if (halo_hex == null) {
+            this.halo_color = null;
+        }
+        else {
+            this.halo_color = [
+                parseInt(halo_hex.substring(1, 3), 16),
+                parseInt(halo_hex.substring(3, 5), 16),
+                parseInt(halo_hex.substring(5, 7), 16),
+            ];
+        }
+        this.schedule_render();
     }
 
     schedule_render() {
@@ -312,10 +388,17 @@ class WipePlayer {
         this.render();
 
         if (this.t >= 1) {
-            this.set_time(1);
-            this.pause();
+            if (this.loop) {
+                this.set_time(0);
+            }
+            else {
+                this.set_time(1);
+                this.pause();
+                return;
+            }
         }
-        else if (this.playing) {
+
+        if (this.playing) {
             window.requestAnimationFrame(this.render_loop.bind(this));
         }
     }
@@ -325,9 +408,7 @@ class WipePlayer {
 // WEBGL WIPEPLAYER ------------------------------------------------------------
 
 class WipePlayerGL extends WipePlayer {
-    constructor(...args) {
-        super(...args);
-
+    _init() {
         let gl = this.canvas.getContext('webgl');
         this.gl = gl;
         this.shader = new Shader(gl, vertex_shader_source, fragment_shader_source);
@@ -360,19 +441,35 @@ class WipePlayerGL extends WipePlayer {
 
         gl.useProgram(this.shader.program);
         this.shader.send('mask', this.mask_texture);
-        //this.shader.send('before_color', [1, 0.5, 0, 1]);
-        //this.shader.send('after_color', [0, 1, 0.5, 1]);
         this.shader.send('before', this.before_texture);
         this.shader.send('after', this.after_texture);
-        this.shader.send('ramp', 4/256);
+        //this.shader.send('halo_color', [255/255, 137/255, 178/255, 1]);
     }
 
     set_time(t) {
-        // This is called from the parent constructor, before the shader exists...
-        if (this.shader) {
-            this.shader.send('t', t);
-        }
         super.set_time(t);
+        this.shader.send('t', this.t);
+    }
+
+    set_ramp(ramp) {
+        super.set_ramp(ramp);
+        this.shader.send('ramp', this.ramp);
+    }
+
+    set_halo(halo) {
+        super.set_halo(halo);
+
+        if (this.halo_color == null) {
+            this.shader.send('halo_color', [0, 0, 0, 0]);
+        }
+        else {
+            this.shader.send('halo_color', [
+                this.halo_color[0] / 255,
+                this.halo_color[1] / 255,
+                this.halo_color[2] / 255,
+                1,
+            ]);
+        }
     }
 
     render() {
@@ -387,6 +484,14 @@ class WipePlayerGL extends WipePlayer {
 
 
 // CANVAS WIPEPLAYER -----------------------------------------------------------
+
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function lerp(t, a, b) {
+    return (1 - t) * a + t * b;
+}
 
 class WipePlayerCanvas extends WipePlayer {
     constructor(...args) {
@@ -413,54 +518,48 @@ class WipePlayerCanvas extends WipePlayer {
 
         for (let i = 0; i < len; i += 4) {
             let discriminator = mask_pixels.data[i] / 255;
-            let alpha = (t - discriminator) / this.ramp + 0.5;
-            if (alpha < 0) {
-                alpha = 0;
-            }
-            else if (alpha > 1) {
-                alpha = 1;
-            }
-            // FIXME probably do a real alpha composite
-            out_pixels.data[i + 0] = pixels1.data[i + 0] * (1 - alpha) + pixels2.data[i + 0] * alpha;
-            out_pixels.data[i + 1] = pixels1.data[i + 1] * (1 - alpha) + pixels2.data[i + 1] * alpha;
-            out_pixels.data[i + 2] = pixels1.data[i + 2] * (1 - alpha) + pixels2.data[i + 2] * alpha;
+            let alpha = clamp((t - discriminator) / this.ramp + 0.5, 0, 1);
+            // FIXME probably do a real alpha composite, especially for the top (makes less sense for bottom)
+            /*
+            out_pixels.data[i + 0] = lerp(alpha, pixels1.data[i + 0], pixels2.data[i + 0]);
+            out_pixels.data[i + 1] = lerp(alpha, pixels1.data[i + 1], pixels2.data[i + 1]);
+            out_pixels.data[i + 2] = lerp(alpha, pixels1.data[i + 2], pixels2.data[i + 2]);
             out_pixels.data[i + 3] = 255;
             continue;
+            */
 
             // FIXME make alpha optional
             // Compute the alpha of the halo such that it's 1.0 when the
             // discriminator matches exactly, and 0.0 just at the end of the ramp
-            let halo_alpha = 1.0 - Math.abs(t - discriminator) / ramp;
-            if (halo_alpha < 0) {
-                halo_alpha = 0;
-            }
-            else if (halo_alpha > 1) {
-                halo_alpha = 1;
-            }
+            let halo_alpha = clamp(1.0 - Math.abs(t - discriminator) / this.ramp, 0, 1);
 
             if (alpha <= 0) {
-                // Nothing to draw at all
-                overlay_pixels.data[i + 3] = 0;
+                // Full before
+                out_pixels.data[i + 0] = pixels1.data[i + 0];
+                out_pixels.data[i + 1] = pixels1.data[i + 1];
+                out_pixels.data[i + 2] = pixels1.data[i + 2];
+                out_pixels.data[i + 3] = pixels1.data[i + 3];
             }
             else if (alpha >= 1) {
-                // Full overlay, so do nothing
-                ;
+                // Full after
+                out_pixels.data[i + 0] = pixels2.data[i + 0];
+                out_pixels.data[i + 1] = pixels2.data[i + 1];
+                out_pixels.data[i + 2] = pixels2.data[i + 2];
+                out_pixels.data[i + 3] = pixels2.data[i + 3];
             }
             else if (alpha < 0.5) {
-                // No overlay, but a halo
-                overlay_pixels.data[i + 0] = halo_color[0];
-                overlay_pixels.data[i + 1] = halo_color[1];
-                overlay_pixels.data[i + 2] = halo_color[2];
-                overlay_pixels.data[i + 3] = Math.floor(halo_alpha * 255 + 0.5);
+                // Before, but with the halo color on top
+                out_pixels.data[i + 0] = lerp(halo_alpha, pixels1.data[i + 0], halo_color[0]);
+                out_pixels.data[i + 1] = lerp(halo_alpha, pixels1.data[i + 1], halo_color[1]);
+                out_pixels.data[i + 2] = lerp(halo_alpha, pixels1.data[i + 2], halo_color[2]);
+                out_pixels.data[i + 3] = 255;
             }
             else {
-                // Blend the halo with the overlay
-                const overlay_alpha = overlay_pixels.data[i + 3] / 255;
-                const blend_alpha = halo_alpha + overlay_alpha * (1 - halo_alpha);
-                for (let ch = 0; ch < 3; ch++) {
-                    overlay_pixels.data[i + ch] = (halo_color[ch] * halo_alpha + overlay_pixels.data[i + ch] * overlay_alpha * (1 - halo_alpha)) / blend_alpha + 0.5;
-                }
-                overlay_pixels.data[i + 3] = blend_alpha * 255 + 0.5;
+                // After, but with the halo color on top
+                out_pixels.data[i + 0] = lerp(halo_alpha, pixels2.data[i + 0], halo_color[0]);
+                out_pixels.data[i + 1] = lerp(halo_alpha, pixels2.data[i + 1], halo_color[1]);
+                out_pixels.data[i + 2] = lerp(halo_alpha, pixels2.data[i + 2], halo_color[2]);
+                out_pixels.data[i + 3] = 255;
             }
         }
         this.ctx.putImageData(out_pixels, 0, 0);
@@ -1626,19 +1725,20 @@ function init() {
         ctx.fillRect(0, 0, after_canvas.width, after_canvas.height);
     }
 
-    let player;
-    // FIXME why do i get "exceeded 16 live webgl contexts for this principal"???
-    let gl = canvas.getContext('webgl');
-    if (gl) {
-        player = new WipePlayerGL(canvas, mask_canvas, before_canvas, after_canvas);
+    let player_cls;
+    const params = new URLSearchParams(location.search);
+    if (params.has('force-canvas') || ! canvas.getContext('webgl')) {
+        player_cls = WipePlayerCanvas;
     }
     else {
-        player = new WipePlayerCanvas(canvas, mask_canvas, before_canvas, after_canvas);
+        // FIXME why do i get "exceeded 16 live webgl contexts for this principal"???  can i handle losing context?
+        player_cls = WipePlayerGL;
     }
+    let player = new player_cls(canvas, mask_canvas, before_canvas, after_canvas);
 }
 
 
-// TODO:
+// TODO needs fixing before a real release:
 // - dropping files seems hit or miss wtf
 // - allow picking resolution (hoo boy)
 //   - should there be a limit?
@@ -1646,15 +1746,26 @@ function init() {
 //   - hold onto dropped before/after files so we can reread them?
 // - allow playing in fullscreen
 // - play button inaccessible if your screen is too big, whhhhooops
-// - indicate if using webgl or canvas?
-// - allow forcing canvas?
-// - some stats, like how long the generation/preview took, or fps of the playback?
 // - better error, loading handling
 // - wrap this in a namespace or closure or whatever
 //
 // - fix the fuckin, timing not being right, god, that's supposed to be the whole point
+// - finish halo support; canvas and webgl seem to differ a bit
+// - also support alpha, at least on the 'after' image
 //
-// - halo support!
+// ok lemme think instructions
+// - what it does
+// - optionally, how it works
+// - you can upload your own images!
+// - also, hint that you can change the aspect ratio of stuff like diagonal shutter or spiral by changing the number of rows/cols
+//   - stuff like spiral is a bit goofy with 'delay'
+//   - 3x3 limit + random
+//   - how to save the mask
+//   - how to use this (either as shader or renpy)
+//
+// TODO misc:
+// - indicate if using webgl or canvas?
+// - some stats, like how long the generation/preview took, or fps of the playback?
 // - need some way of indicating when rows/columns are not remotely proportional
 // - also indicate when settings have changed but the wipe hasn't been regenerated yet
 // - changing delay shouldn't redraw the preview
@@ -1666,16 +1777,6 @@ function init() {
 //   - i tried this and it became 4x slower (!), may need to consider a web worker or something, idk
 // - allow swapping before/after canvases
 //   - or maybe this should be a playback mode?  forward, backward, pingpong
-//
-// ok lemme think instructions
-// - what it does
-// - optionally, how it works
-// - you can upload your own images!
-// - also, hint that you can change the aspect ratio of stuff like diagonal shutter or spiral by changing the number of rows/cols
-//   - stuff like spiral is a bit goofy with 'delay'
-//   - 3x3 limit + random
-//   - how to save the mask
-//   - how to use this (either as shader or renpy)
 //
 // - support hex or tri grids?
 // - support offsetting every other column or something???  that would be cool with hearts!!
