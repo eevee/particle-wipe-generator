@@ -39,7 +39,8 @@ const fragment_shader_source = `
     void main() {
         //vec4 pixel = after_color;
         vec4 pixel = texture2D(after, tex_coords);
-        float discriminator = texture2D(mask, tex_coords).r;
+        vec4 mask_pixel = texture2D(mask, tex_coords);
+        float discriminator = mask_pixel.r + mask_pixel.g / 256.0 + mask_pixel.b / 65536.0;
         float scaled_t = t * (1.0 + ramp * 2.0) - ramp;
         float alpha = clamp((scaled_t - discriminator) / ramp + 0.5, 0.0, 1.0);
         pixel.a *= alpha;
@@ -166,7 +167,6 @@ class Texture {
         // Semi-automatically detect when a canvas needs reuploading
         if (image.tagName === 'CANVAS') {
             image.addEventListener('_updated', event => {
-                console.log("aha!  re-uploading");
                 gl.bindTexture(gl.TEXTURE_2D, this.texture);
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
             });
@@ -443,19 +443,46 @@ class PatternGenerator {
 }
 
 class RowPattern extends PatternGenerator {
+    constructor(row_ct, column_ct, droop) {
+        super(row_ct, column_ct);
+
+        this.range = Math.ceil(droop * this.row_ct);
+        this.offsets = [];
+        for (let c = 0; c < this.column_ct + 2; c++) {
+            this.offsets.push(Math.floor(Math.random() * this.range));
+        }
+    }
     _get_max_step() {
-        return this.row_ct - 1;
+        return this.row_ct - 1 + this.range;
     }
     cell(r, c) {
-        return r;
+        return r + this.offsets[c + 1];
     }
 }
 class ColumnPattern extends PatternGenerator {
+    constructor(row_ct, column_ct, droop) {
+        super(row_ct, column_ct);
+
+        this.range = Math.ceil(droop * this.column_ct);
+        this.offsets = [];
+        for (let r = 0; r < this.row_ct + 2; r++) {
+            this.offsets.push(Math.floor(Math.random() * this.range));
+        }
+    }
     _get_max_step() {
-        return this.column_ct - 1;
+        return this.column_ct - 1 + this.range;
     }
     cell(r, c) {
-        return c;
+        return c + this.offsets[r + 1];
+    }
+}
+// FIXME support droop i guess?
+class DiagonalPattern extends PatternGenerator {
+    _get_max_step() {
+        return this.row_ct - 1 + this.column_ct - 1;
+    }
+    cell(r, c) {
+        return r + c;
     }
 }
 
@@ -491,6 +518,16 @@ class ColumnCurtainPattern extends PatternGenerator {
 
     cell(r, c) {
         return c + reflect(r, this.row_ct);
+    }
+}
+// This doesn't entirely make sense, but for the sake of completion...
+class DiagonalCurtainPattern extends PatternGenerator {
+    _get_max_step() {
+        return Math.min(this.row_ct, this.column_ct) - 1;
+    }
+
+    cell(r, c) {
+        return Math.min(r, c);
     }
 }
 
@@ -540,60 +577,71 @@ class BoxPattern extends PatternGenerator {
     }
 }
 
+// FIXME i would LOVE to have dual spirals as well?
 class SpiralPattern extends PatternGenerator {
-    constructor(...args) {
-        super(...args);
-        // FIXME allow these as args
+    constructor(row_ct, column_ct, fill_delay, spiral_ct) {
+        super(row_ct, column_ct);
         // FIXME also accept a start rotation
-        // FIXME allow squashing instead of clipping
-        this.fill_delay = 3;
-        this.spiral_ct = 3;
+        this.fill_delay = fill_delay;
+        this.spiral_ct = spiral_ct;
+
+        // Width of each spiral (i.e. spacing between them)
+        this.spiral_width = (Math.max(this.row_ct, this.column_ct) / 2) / this.spiral_ct;
+
+        // Cells spread outwards from the spiral, but the spiral will
+        // eventually wrap around again and start spreading cells back inwards.
+        // This is the meeting point (in fractions of a spiral) between
+        // outwards and inwards growing cells
+        this.fill_meet = (1 + 1 / this.fill_delay) / 2;
+
+        // FIXME this multiplier is to make 'delay' kinda work, but it should probably do something clever involving guessing how many cells are in a spiral so that they ROUGHLY start one after another, and also maybe we should do that per-cell too
+        this.scale = 16;
     }
 
     _get_max_step() {
-        // FIXME this multiplier is to make 'delay' kinda work, but it should probably do something clever involving guessing how many cells are in a spiral so that they ROUGHLY start one after another, and also maybe we should do that per-cell too
-        // FIXME this isn't big enough in some cases, urgh
-        return 16 * (1 + this.spiral_ct + (1 + 1 / this.fill_delay) / 2);
+        // FIXME this isn't big enough when fill_delay gets too big, hrrhuguhh
+        return this.scale * (this.spiral_ct + (this.fill_delay + 1) / 2);
     }
 
     cell(r, c) {
-        let x, y, w;
-        if (true) {
-            // Trim -- use circular spirals
-            x = (this.column_ct / 2) - (c + 0.5);
-            y = (this.row_ct / 2) - (r + 0.5);
+        const w = this.spiral_width;
 
-            // Width of each spiral
-            // TODO angle matters
-            w = (Math.max(this.row_ct, this.column_ct) / 2) / this.spiral_ct;
-        }
-        else {
-            // Squash -- fit spiral to the shape of the grid
-            // Here, units are normalized
-            x = (c + 0.5) / this.column_ct - 0.5;
-            y = (r + 0.5) / this.row_ct - 0.5;
-
-            w = 0.5 / this.spiral_ct;
-        }
-
-        // Distance this cell is from the center, in spiral widths
-        const d = Math.sqrt(x*x + y*y) / w;
+        // Coordinates of this cell's center, in grid cells, relative to center
+        const x = (this.column_ct / 2) - (c + 0.5);
+        const y = (this.row_ct / 2) - (r + 0.5);
+        // Distance this cell is from the center, in spiral widths (which are
+        // themselves still measured in grid cells)
+        let d = Math.sqrt(x*x + y*y) / w;
 
         const theta = Math.atan2(y, x) + tau / 2;
         // How far out spirals start at this angle, in fractions of a spiral (0 to 1)
         const offset = theta / tau;
-        // Nearest spiral (towards the center), and the distance from it
-        const nearest_spiral = Math.floor(d - offset);
-        const dist_to_spiral = Math.abs(nearest_spiral + offset - d);
+
+        let d2 = d - offset;
+        // Nearest spiral, and the distance from it
+        let nearest_spiral = Math.floor(d2 + 1 - this.fill_meet);
+        let dist_to_spiral = Math.abs(nearest_spiral - d2);
         // How far along the spiral this point is, in revolutions
-        const t = nearest_spiral + theta / tau;
-        // The spiral itself increases by steps, and then fills in the gaps between
-        // The cell might start from either the inner or outer spirals, so just
-        // try both and use whichever happens sooner
-        return 16 * Math.min(
-            t + dist_to_spiral * this.fill_delay,
-            t + 1 + (1 - dist_to_spiral) * this.fill_delay
-        );
+        let t = nearest_spiral + offset;
+        // If we're inside the innermost spiral, the distance from here to the
+        // center is smaller than the distance between spirals normally is, so
+        // adjust accordingly
+        if (d < offset) {
+            if (d < offset * this.fill_meet) {
+                // We're so close to the center that angle is irrelevant
+                t = 0;
+                dist_to_spiral = d;
+            }
+            else {
+                // Outer spiral is closer than the origin
+                dist_to_spiral = offset - d;
+            }
+        }
+
+        // The spiral itself is the main counter here, and cells between the
+        // spiral's arms are filled in outwards, with fill_delay being the time
+        // (in full spirals) it takes to spread from one arm to the next
+        return this.scale * (t + dist_to_spiral * this.fill_delay);
     }
 }
 
@@ -679,15 +727,14 @@ class PatternFlipped extends PatternWrapper {
 // configuration of generator.
 const PATTERN_GENERATORS = {
     // "Wipe" is a straight wipe across in one of the four cardinal directions
-    // TODO why doesn't this also include diagonal wipes?  hell, why not arbitrary angle?
+    // TODO hmm, arbitrary angle wipes or curtains?
     wipe: {
         extra_controls: ['direction'],
+        extra_args: ['droop'],
         generator: {
-            // FIXME how do i make left/right do different things correctly
-            right: ColumnPattern,
-            left: ColumnPattern,
-            down: RowPattern,
-            up: RowPattern,
+            row: RowPattern,
+            column: ColumnPattern,
+            diagonal: DiagonalPattern,
         },
     },
     // "Curtain" expands from two adjacent corners in one of the four cardinal
@@ -695,21 +742,20 @@ const PATTERN_GENERATORS = {
     curtain: {
         extra_controls: ['direction'],
         generator: {
-            // FIXME how do i make left/right do different things correctly
-            right: ColumnCurtainPattern,
-            left: ColumnCurtainPattern,
-            down: RowCurtainPattern,
-            up: RowCurtainPattern,
+            row: RowCurtainPattern,
+            column: ColumnCurtainPattern,
+            diagonal: DiagonalCurtainPattern,
         },
     },
     // "Shutter" closes from two opposite corners or sides
     shutter: {
-        extra_controls: ['direction2'],
+        extra_controls: ['direction'],
         generator: {
-            vertical: ColumnShutterPattern,
-            horizontal: RowShutterPattern,
-            'main-diagonal': MainDiagonalShutterPattern,
-            // FIXME others
+            row: RowShutterPattern,
+            column: ColumnShutterPattern,
+            diagonal: MainDiagonalShutterPattern,
+            // There is no off-diagonal pattern, since you can just mirror/flip
+            // the diagonal one
         },
     },
     // "Diamond" closes from all four corners at once
@@ -722,17 +768,17 @@ const PATTERN_GENERATORS = {
     },
     // "Spiral" is a cool spiral from the center
     spiral: {
-        // FIXME still not sure how to do this
         generator: SpiralPattern,
+        extra_args: ['fill-delay', 'spirals'],
     },
     // "Random" is, well, random
     random: {
         // FIXME slightly more complicated
         generator: RandomPattern,
     },
-    // TODO opposite corners too?
-    // TODO wipe fall a la doom?
+    // TODO radial sweep?
     // TODO random splatters?  not really grid-based at all huh
+    // TODO shapes sliding across?  also not really grid-based
 }
 
 function generate_cell_pattern(rows, cols, pattern_generator) {
@@ -817,7 +863,9 @@ class GeneratorView {
         this.bind_control('control-pattern', 'pattern');
         // And optional ones
         this.bind_control('control-direction', 'direction', true);
-        this.bind_control('control-direction2', 'direction2', true);
+        this.bind_control('control-droop', 'droop', true);
+        this.bind_control('control-fill-delay', 'fill-delay', true);
+        this.bind_control('control-spirals', 'spirals', true);
         // And generic ones
         // TODO maybe these should be hidden for symmetric ones where they don't apply?
         this.bind_control('control-interlace', 'interlace');
@@ -899,10 +947,11 @@ class GeneratorView {
                 }
             }
 
-            if (generator_def.extra_controls) {
-                for (const control_key of generator_def.extra_controls) {
-                    this.controls[control_key].control.parentNode.classList.remove('hidden');
-                }
+            for (const control_key of (generator_def.extra_controls || [])) {
+                this.controls[control_key].control.parentNode.classList.remove('hidden');
+            }
+            for (const control_key of (generator_def.extra_args || [])) {
+                this.controls[control_key].control.parentNode.classList.remove('hidden');
             }
         }
     }
@@ -926,10 +975,9 @@ class GeneratorView {
     get_generator() {
         const pattern_type = this.settings.pattern;
         const generator_def = PATTERN_GENERATORS[pattern_type];
-        const extra_controls = generator_def.extra_controls || [];
         let generator_tree = generator_def.generator;
 
-        for (const key of extra_controls) {
+        for (const key of generator_def.extra_controls || []) {
             const value = this.settings[key];
             generator_tree = generator_tree[value];
             if (! generator_tree) {
@@ -937,10 +985,15 @@ class GeneratorView {
             }
         }
 
-        let generator = new generator_tree(this.settings.rows, this.settings.columns);
+        let extra_args = [];
+        for (const key of generator_def.extra_args || []) {
+            const value = this.settings[key];
+            extra_args.push(value);
+        }
+
+        let generator = new generator_tree(this.settings.rows, this.settings.columns, ...extra_args);
 
         // Apply wrappers, if appropriate
-        console.log(this.settings);
         // TODO when does interlace apply?
         if (this.settings.interlace > 1) {
             generator = new PatternInterlaced(generator, this.settings.interlace);
@@ -974,6 +1027,9 @@ class GeneratorView {
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
                 const value = generator.cell(r, c) / max_step;
+                if (value > 1) {
+                    console.log("warning, exceeded max step!", value * max_step, max_step, r, c);
+                }
 
                 ctx.fillStyle = `rgb(${value * 100}%, ${value * 100}%, ${value * 100}%)`;
                 ctx.fillRect(Math.floor(cell_width * c), Math.floor(cell_height * r), Math.ceil(cell_width), Math.ceil(cell_height));
@@ -1279,12 +1335,14 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
             }
             let scale = Math.min(...scales);
             const time = start_time + scale / max_scale;
-            const value = time / total_time;
-            const pixel = Math.floor(value * 255 + 0.5);
+            let value = time / total_time;
 
-            pixels.data[i + 0] = pixel;
-            pixels.data[i + 1] = pixel;
-            pixels.data[i + 2] = pixel;
+            value *= 256;
+            pixels.data[i + 0] = Math.floor(value);
+            value = (value % 1) * 256;
+            pixels.data[i + 1] = Math.floor(value);
+            value = (value % 1) * 256;
+            pixels.data[i + 2] = Math.floor(value);
             pixels.data[i + 3] = 255;
             i += 4;
         }
@@ -1382,9 +1440,11 @@ function init() {
 
 
 // TODO:
-// - default to diamond?
 // - need some way of indicating when rows/columns are not remotely proportional
+// - also, hint that you can change the aspect ratio of stuff like diagonal shutter or spiral by changing the number of rows/cols
 // - also indicate when settings have changed but the wipe hasn't been regenerated yet
+// - changing delay shouldn't redraw the preview
+//   - ideally, changing other settings wouldn't reroll a random wipe...
 // - not sure that i handle rows that don't divide evenly very well yet
 // - should including the outer border be optional??
 // - obviously support dragging files in, and i guess upload button or whatever
@@ -1392,7 +1452,7 @@ function init() {
 //
 // - support hex or tri grids?
 // - support offsetting every other column or something???  that would be cool with hearts!!
-// - support (both generation and playback) higher-definition masks using all three channels.  actually this might even be compatible since the extra channels would just be extra detail?  depends how ren'py does it, does it just read the red channel?
+// - check if hi-def masks work with renpy; if not, allow doing grayscale.  or maybe do that anyway
 //
 // - REALLY gotta fix the max time being wrong because of overlap, oops
 // - allow outer edge to exist, optionally?

@@ -54,43 +54,33 @@
                         <option value="spiral">spiral</option>
                         <option value="random">random</option>
                         <!-- density? -->
-                        <!--
-                        <option value="row">Rows</option>
-                        <option value="column">Columns</option>
-                        <option value="rowalt">Rows alternating</option>
-                        <option value="rowcorner">Row pinch</option>
-                        <option value="columncorner">Column pinch</option>
-                        <option value="allcorner">Corners inwards</option>
-                        <option value="spiral">Spiral</option>
-                        <option value="random">Random</option>
-                        -->
-                        <!-- TODO from a single corner also -->
                     </select>
                 </label>
                 <!-- Optional pattern settings -->
                 <label>
                     Direction
                     <select id="control-direction">
-                        <option value="right">right</option>
-                        <option value="left">left</option>
-                        <option value="down">down</option>
-                        <option value="up">up</option>
+                        <option value="row">by row</option>
+                        <option value="column">by column</option>
+                        <option value="diagonal">diagonally</option>
                     </select>
                 </label>
                 <label>
-                    Direction
-                    <select id="control-direction2">
-                        <option value="horizontal">horizontal</option>
-                        <option value="vertical">vertical</option>
-                        <option value="main-diagonal">main diagonal</option>
-                        <option value="off-diagonal">off diagonal</option>
-                    </select>
+                    Droop
+                    <input id="control-droop" type="range" min="0" max="1" value="0" step="0.01">
+                </label>
+                <label>
+                    Fill delay
+                    <input id="control-fill-delay" type="range" min="1" max="10" value="3" step="0.25">
+                </label>
+                <label>
+                    Spirals
+                    <input id="control-spirals" type="range" min="0.25" max="8" value="1" step="0.25">
                 </label>
                 <!-- Generic pattern settings -->
                 <label>
                     Interlace
                     <input id="control-interlace" type="range" min="1" max="8" value="1">
-                    <output></output>
                 </label>
                 <label>
                     Reverse
