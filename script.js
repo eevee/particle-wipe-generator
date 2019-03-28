@@ -876,7 +876,12 @@ function inject_file_support(canvas, callback) {
     }
 
     const figcaption = figure.querySelector('figcaption');
-    const original_caption = figcaption.textContent;
+    // Wrap the caption in a <p> to enable some flexboxing
+    let p = document.createElement('p');
+    // XXX hokey
+    p.textContent = figcaption.firstChild.textContent;
+    figcaption.removeChild(figcaption.firstChild);
+    figcaption.insertBefore(p, figcaption.firstChild);
 
     let uploader = document.createElement('input');
     uploader.type = 'file';

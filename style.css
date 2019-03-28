@@ -51,10 +51,18 @@ input[type=range] {
     padding: 0.25em 0.5em;
     background: #444;
     align-items: center;
-    justify-content: space-between;
+    column-gap: 0.5em;
+}
+#generator figure figcaption p {
+    margin: 0;
+    flex: 1;
 }
 #generator figure figcaption input[type=file] {
     display: none;
+}
+#generator figure figcaption input,
+#generator figure figcaption button {
+    flex: 0 auto;
 }
 #generator figure.drag-hover canvas {
     border-color: gold;
