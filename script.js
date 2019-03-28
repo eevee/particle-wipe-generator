@@ -656,6 +656,7 @@ function reflect(n, count) {
     }
 }
 // Largest step you can get by reflecting
+// FIXME not sure this is right for reflecting spiral
 function reflect_max(count) {
     return Math.floor(count / 2 - 0.5);
 }
@@ -919,6 +920,15 @@ class PatternFlipped extends PatternWrapper {
         return this.wrapped.cell(this.row_ct - r - 1, c);
     }
 }
+class PatternReflected extends PatternWrapper {
+    constructor(pattern) {
+        super(pattern);
+        this.max_step = reflect_max(this.wrapped.max_step + 1);
+    }
+    cell(r, c) {
+        return reflect(this.wrapped.cell(r, c), this.wrapped.max_step + 1);
+    }
+}
 
 
 
@@ -1153,6 +1163,7 @@ class GeneratorView {
         // And generic ones
         // TODO maybe these should be hidden for symmetric ones where they don't apply?
         this.bind_control('control-interlace', 'interlace');
+        this.bind_control('control-reflect', 'reflect');
         this.bind_control('control-reverse', 'reverse');
         this.bind_control('control-mirror', 'mirror');
         this.bind_control('control-flip', 'flip');
@@ -1285,6 +1296,10 @@ class GeneratorView {
         // TODO when does interlace apply?
         if (this.settings.interlace > 1) {
             generator = new PatternInterlaced(generator, this.settings.interlace);
+        }
+        // Note that reflect must happen before reverse, or the steps will be symmetrical and reverse will be lost
+        if (this.settings.reflect) {
+            generator = new PatternReflected(generator);
         }
         if (this.settings.reverse) {
             generator = new PatternReversed(generator);
@@ -1746,8 +1761,10 @@ function init() {
 //   - hold onto dropped before/after files so we can reread them?
 // - allow playing in fullscreen
 // - play button inaccessible if your screen is too big, whhhhooops
-// - better error, loading handling
+//   - speaks to a general issue with layout here, sigh
+// - better error, loading, processing handling
 // - wrap this in a namespace or closure or whatever
+// - maybe come up with some more patterns so this feels like it's worth the effort??
 //
 // - fix the fuckin, timing not being right, god, that's supposed to be the whole point
 // - finish halo support; canvas and webgl seem to differ a bit
@@ -1764,6 +1781,7 @@ function init() {
 //   - how to use this (either as shader or renpy)
 //
 // TODO misc:
+// - should give all the form controls names, so refresh populates them correctly, sigh
 // - indicate if using webgl or canvas?
 // - some stats, like how long the generation/preview took, or fps of the playback?
 // - need some way of indicating when rows/columns are not remotely proportional
@@ -1778,6 +1796,8 @@ function init() {
 // - allow swapping before/after canvases
 //   - or maybe this should be a playback mode?  forward, backward, pingpong
 //
+// - do i need shutter if i have reflect?  alternative, should reflect be a slider?
+// - support uploading your own grayscale cell pattern?
 // - support hex or tri grids?
 // - support offsetting every other column or something???  that would be cool with hearts!!
 // - check if hi-def masks work with renpy; if not, allow doing grayscale.  or maybe do that anyway

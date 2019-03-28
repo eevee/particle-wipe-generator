@@ -24,68 +24,68 @@
                     <li><button class="control-preset-particle" value="text">🔣</button></li>
                 </ul>
             </div>
-            <dl class="control-grid">
-                <dt><label for="control-rows">Rows</label></dt>
-                <dd><input id="control-rows" type="range" min="1" max="32" value="9"></dd>
+            <div class="generator-controls">
+                <dl class="control-grid">
+                    <dt><label for="control-rows">Rows</label></dt>
+                    <dd><input id="control-rows" type="range" min="1" max="32" value="18"></dd>
 
-                <dt><label for="control-cols">Columns</label></dt>
-                <dd><input id="control-cols" type="range" min="1" max="64" value="16"></dd>
+                    <dt><label for="control-cols">Columns</label></dt>
+                    <dd><input id="control-cols" type="range" min="1" max="64" value="32"></dd>
 
-                <dt><label for="control-delay">Delay</label></dt>
-                <dd><input id="control-delay" type="range" min="0" max="2" step="0.03125" value="0.0625"></dd>
+                    <dt><label for="control-delay">Delay</label></dt>
+                    <dd><input id="control-delay" type="range" min="0" max="1" step="0.0625" value="0.0625"></dd>
 
-                <dt><label for="control-pattern">Pattern</label></dt>
-                <dd>
-                    <select id="control-pattern">
-                        <option value="wipe">wipe</option>
-                        <option value="curtain">curtain</option>
-                        <option value="shutter">shutter</option>
-                        <option value="diamond">diamond</option>
-                        <option value="box">box</option>
-                        <option value="spiral">spiral</option>
-                        <option value="random">random</option>
-                        <!-- density? -->
-                    </select>
-                </dd>
+                    <dt><label for="control-pattern">Pattern</label></dt>
+                    <dd>
+                        <select id="control-pattern">
+                            <option value="wipe">wipe</option>
+                            <option value="curtain">curtain</option>
+                            <option value="shutter">shutter</option>
+                            <option value="diamond">diamond</option>
+                            <option value="box">box</option>
+                            <option value="spiral">spiral</option>
+                            <option value="random">random</option>
+                            <!-- density? -->
+                        </select>
+                    </dd>
 
-                <!-- Optional pattern settings -->
-                <dt><label for="control-direction">Direction</label></dt>
-                <dd>
-                    <select id="control-direction">
-                        <option value="row">by row</option>
-                        <option value="column">by column</option>
-                        <option value="diagonal">diagonally</option>
-                    </select>
-                </dd>
+                    <!-- Optional pattern settings -->
+                    <dt><label for="control-direction">Direction</label></dt>
+                    <dd>
+                        <select id="control-direction">
+                            <option value="row">by row</option>
+                            <option value="column">by column</option>
+                            <option value="diagonal">diagonally</option>
+                        </select>
+                    </dd>
 
-                <dt><label for="control-angle">Angle</label></dt>
-                <dd><input id="control-angle" type="range" min="0" max="1" value="0" step="0.01"></dd>
+                    <dt><label for="control-angle">Angle</label></dt>
+                    <dd><input id="control-angle" type="range" min="0" max="1" value="0" step="0.01"></dd>
 
-                <dt><label for="control-droop">Droop</label></dt>
-                <dd><input id="control-droop" type="range" min="0" max="1" value="0" step="0.01"></dd>
+                    <dt><label for="control-droop">Droop</label></dt>
+                    <dd><input id="control-droop" type="range" min="0" max="1" value="0" step="0.01"></dd>
 
-                <dt><label for="control-fill-delay">Fill delay</label></dt>
-                <dd><input id="control-fill-delay" type="range" min="1" max="10" value="3" step="0.25"></dd>
+                    <dt><label for="control-fill-delay">Fill delay</label></dt>
+                    <dd><input id="control-fill-delay" type="range" min="1" max="10" value="3" step="0.25"></dd>
 
-                <dt><label for="control-loops">Loops</label></dt>
-                <dd><input id="control-loops" type="range" min="0.25" max="8" value="1" step="0.25"></dd>
+                    <dt><label for="control-loops">Loops</label></dt>
+                    <dd><input id="control-loops" type="range" min="0.25" max="8" value="1" step="0.25"></dd>
 
-                <dt><label for="control-arms">Arms</label></dt>
-                <dd><input id="control-arms" type="range" min="1" max="8" value="1" step="1"></dd>
+                    <dt><label for="control-arms">Arms</label></dt>
+                    <dd><input id="control-arms" type="range" min="1" max="8" value="1" step="1"></dd>
 
-                <!-- Generic pattern settings -->
-                <dt><label for="control-interlace">Interlace</label></dt>
-                <dd><input id="control-interlace" type="range" min="1" max="8" value="1"></dd>
+                    <!-- Generic pattern settings -->
+                    <dt><label for="control-interlace">Interlace</label></dt>
+                    <dd><input id="control-interlace" type="range" min="1" max="8" value="1"></dd>
+                </dl>
 
-                <dt><label for="control-reverse">Reverse</label></dt>
-                <dd><input id="control-reverse" type="checkbox"></dd>
-
-                <dt><label for="control-mirror">Mirror</label></dt>
-                <dd><input id="control-mirror" type="checkbox"></dd>
-
-                <dt><label for="control-flip">Flip</label></dt>
-                <dd><input id="control-flip" type="checkbox"></dd>
-            </dl>
+                <div class="generation-checkboxes">
+                    <label title="Reflect pattern"><input id="control-reflect" type="checkbox"> ⇔ Reflect</label>
+                    <label title="Reverse cell order"><input id="control-reverse" type="checkbox"> ⇐ Reverse</label>
+                    <label title="Mirror horizontally"><input id="control-mirror" type="checkbox"> ↔ Mirror</label>
+                    <label title="Flip vertically"><input id="control-flip" type="checkbox"> ↕ Flip</label>
+                </div>
+            </div>
             <div class="preview-generate">
                 <figure>
                     <canvas id="preview" width="384" height="216"></canvas>
@@ -125,7 +125,7 @@
                 </p>
                 <div class="other-playback-controls">
                     <p>Total playback time: <output id="knob-duration-value">0.25 seconds / 15 frames</output></p>
-                    <input id="knob-duration" type="range" min="1" max="600" value="60">
+                    <input id="knob-duration" type="range" min="1" max="600" value="120">
                     <p>Ramp (length of gradient between before/after): <output id="knob-ramp-value">4/256</output></p>
                     <input id="knob-ramp" type="range" min="1" max="256" value="4">
                 </div>

@@ -122,6 +122,17 @@ input[type=range] {
     margin: 0;
     grid-column: 2;
 }
+#generator .control-grid output {
+    display: inline-block;
+    min-width: 4em;
+}
+#generator .generation-checkboxes {
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
+    grid-auto-flow: column;
+    justify-content: space-around;
+}
 #generator #control-generate {
     font-size: 2em;
     box-sizing: border-box;
