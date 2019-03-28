@@ -98,7 +98,7 @@ input[type=range] {
     flex-direction: column;
 }
 #generator .particle-presets li {
-    margin: 0.5em;
+    margin: 0.25em;
     list-style: none;
 }
 #generator .control-grid {
@@ -124,7 +124,7 @@ input[type=range] {
 }
 #generator .control-grid output {
     display: inline-block;
-    min-width: 4em;
+    min-width: 3em;
 }
 #generator .generation-checkboxes {
     display: grid;
@@ -151,10 +151,28 @@ input[type=range] {
 #generator #control-generate.dirty {
     animation: pulsing-submit 0.5s infinite alternate;
 }
+
+/* Layout of the playback area at the bottom */
 #generator .playback {
     display: flex;
+    max-width: 95%;
     column-gap: 1em;
+    justify-content: center;
 }
+#generator .playback .main-canvas {
+    flex: 0 3 75%;
+    max-width: -moz-fit-content;
+    max-width: fit-content;
+}
+#generator .playback .parts {
+    flex: 0 1 25%;
+}
+/* Force the canvases to scale to fit their available space */
+#generator .playback canvas {
+    box-sizing: border-box;
+    width: 100%;
+}
+
 #generator .playback-controls {
     display: flex;
     column-gap: 0.5em;
@@ -187,10 +205,4 @@ input[type=range] {
     margin: 0 0.5em;
     display: flex;
     justify-content: space-between;
-}
-
-#generator .parts canvas {
-    /* FIXME using percentage width here is not actually correct and only works by accident i guess???  do i need to js this????? */
-    /* width: 33.3%; */
-    height: 240px;
 }

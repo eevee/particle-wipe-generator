@@ -1087,7 +1087,7 @@ function inject_file_support(canvas, callback) {
     figcaption.appendChild(uploader);
 
     let button = document.createElement('button');
-    button.textContent = '💾';
+    button.textContent = '📂';
     button.addEventListener('click', e => {
         uploader.click();
     });
