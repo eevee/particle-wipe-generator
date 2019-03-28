@@ -7,35 +7,34 @@
     <script src="script.js"></script>
 </head>
 <body>
+    <h1>Particle wipe generator</h1>
+    <p>It's faster to try it out than to read an explanation.  Click "Generate", then hit the play button at the bottom!</p>
     <div id="generator">
-        <div class="particle">
-            <figure>
-                <canvas id="particle-canvas" width="256" height="256"></canvas>
-                <figcaption>Particle (256×256)</figcaption>
-            </figure>
-            <button class="control-preset-particle" value="diamond">◆</button>
-            <button class="control-preset-particle" value="circle">●</button>
-            <button class="control-preset-particle" value="heart">♥️</button>
-            <button class="control-preset-particle" value="star">★</button>
-            <p>Or drag in your own image!  Just make sure it has alpha.</p>
-            <div class="control-grid">
-                <label>
-                    Rows
-                    <input id="control-rows" type="range" min="1" max="32" value="9">
-                </label>
+        <div class="generation">
+            <div class="particle">
+                <figure>
+                    <canvas id="particle-canvas" width="256" height="256"></canvas>
+                    <figcaption>Particle (256×256)</figcaption>
+                </figure>
+                <ul class="particle-presets">
+                    <li><button class="control-preset-particle" value="diamond">◆</button></li>
+                    <li><button class="control-preset-particle" value="circle">●</button></li>
+                    <li><button class="control-preset-particle" value="heart">♥️</button></li>
+                    <li><button class="control-preset-particle" value="star">★</button></li>
+                </ul>
+            </div>
+            <dl class="control-grid">
+                <dt><label for="control-rows">Rows</label></dt>
+                <dd><input id="control-rows" type="range" min="1" max="32" value="9"></dd>
 
-                <label>
-                    Columns
-                    <input id="control-cols" type="range" min="1" max="64" value="16">
-                </label>
+                <dt><label for="control-cols">Columns</label></dt>
+                <dd><input id="control-cols" type="range" min="1" max="64" value="16"></dd>
 
-                <label>
-                    Delay
-                    <input id="control-delay" type="range" min="0" max="2" step="0.03125" value="0.0625">
-                </label>
+                <dt><label for="control-delay">Delay</label></dt>
+                <dd><input id="control-delay" type="range" min="0" max="2" step="0.03125" value="0.0625"></dd>
 
-                <label>
-                    Pattern
+                <dt><label for="control-pattern">Pattern</label></dt>
+                <dd>
                     <select id="control-pattern">
                         <option value="wipe">wipe</option>
                         <!-- one of four cardinal directions -->
@@ -55,82 +54,84 @@
                         <option value="random">random</option>
                         <!-- density? -->
                     </select>
-                </label>
+                </dd>
+
                 <!-- Optional pattern settings -->
-                <label>
-                    Direction
+                <dt><label for="control-direction">Direction</label></dt>
+                <dd>
                     <select id="control-direction">
                         <option value="row">by row</option>
                         <option value="column">by column</option>
                         <option value="diagonal">diagonally</option>
                     </select>
-                </label>
-                <label>
-                    Droop
-                    <input id="control-droop" type="range" min="0" max="1" value="0" step="0.01">
-                </label>
-                <label>
-                    Fill delay
-                    <input id="control-fill-delay" type="range" min="1" max="10" value="3" step="0.25">
-                </label>
-                <label>
-                    Spirals
-                    <input id="control-spirals" type="range" min="0.25" max="8" value="1" step="0.25">
-                </label>
+                </dd>
+
+                <dt><label for="control-droop">Droop</label></dt>
+                <dd><input id="control-droop" type="range" min="0" max="1" value="0" step="0.01"></dd>
+
+                <dt><label for="control-fill-delay">Fill delay</label></dt>
+                <dd><input id="control-fill-delay" type="range" min="1" max="10" value="3" step="0.25"></dd>
+
+                <dt><label for="control-spirals">Spirals</label></dt>
+                <dd><input id="control-spirals" type="range" min="0.25" max="8" value="1" step="0.25"></dd>
+
                 <!-- Generic pattern settings -->
-                <label>
-                    Interlace
-                    <input id="control-interlace" type="range" min="1" max="8" value="1">
-                </label>
-                <label>
-                    Reverse
-                    <input id="control-reverse" type="checkbox">
-                </label>
-                <label>
-                    Mirror
-                    <input id="control-mirror" type="checkbox">
-                </label>
-                <label>
-                    Flip
-                    <input id="control-flip" type="checkbox">
-                </label>
+                <dt><label for="control-interlace">Interlace</label></dt>
+                <dd><input id="control-interlace" type="range" min="1" max="8" value="1"></dd>
+
+                <dt><label for="control-reverse">Reverse</label></dt>
+                <dd><input id="control-reverse" type="checkbox"></dd>
+
+                <dt><label for="control-mirror">Mirror</label></dt>
+                <dd><input id="control-mirror" type="checkbox"></dd>
+
+                <dt><label for="control-flip">Flip</label></dt>
+                <dd><input id="control-flip" type="checkbox"></dd>
+            </dl>
+            <div class="preview-generate">
+                <figure>
+                    <canvas id="preview" width="384" height="216"></canvas>
+                    <figcaption>Preview</figcaption>
+                </figure>
+                <button id="control-generate">Generate</button>
             </div>
-            <figure>
-                <canvas id="preview" width="208" height="112"></canvas>
-                <figcaption>Preview</figcaption>
-            </figure>
-            <button id="control-generate">Generate</button>
         </div>
-        <div class="main-canvas">
-            <figure>
-                <canvas id="canvas" width="832" height="448"></canvas>
-                <figcaption>Resulting wipe</figcaption>
-            </figure>
-            <div class="controls">
+        <div class="playback">
+            <div class="main-canvas">
+                <figure>
+                    <canvas id="canvas" width="1280" height="720"></canvas>
+                    <figcaption>Result in action</figcaption>
+                </figure>
                 <p class="playback-controls">
                     <button id="knob-play">▶️</button>
                     <input id="knob-progress" type="range" min="0" max="1" step="any" value="0">
                 </p>
-                <p>Total time in <select><option>frames</option><option>seconds</option></select>: <input type="range"> 3 frames</p>
-                <p>Ramp: <input type="range" min="0.00390625" max="1" step="0.00390625"></p>
+                <div class="other-playback-controls">
+                    <p>Total playback time: <output id="knob-duration-value">0.25 seconds / 15 frames</output></p>
+                    <input id="knob-duration" type="range" min="1" max="600" value="60">
+                    <p>Ramp (length of gradient between before/after): <output id="knob-ramp-value">4/256</output></p>
+                    <input id="knob-ramp" type="range" min="1" max="256" value="4">
+                </div>
+            </div>
+            <div class="parts">
+                <figure>
+                    <canvas id="before-canvas" width="1280" height="720"></canvas>
+                    <figcaption>Before <input id="before-color" type="color" value="#ff8000"></figcaption>
+                </figure>
+                <figure>
+                    <canvas id="mask-canvas" width="1280" height="720"></canvas>
+                    <figcaption>Generated mask</figcaption>
+                </figure>
+                <figure>
+                    <canvas id="after-canvas" width="1280" height="720"></canvas>
+                    <figcaption>After <input id="after-color" type="color" value="#00ff80"></figcaption>
+                </figure>
             </div>
         </div>
-        <div class="parts">
-            <figure>
-                <canvas id="before-canvas" width="832" height="448"></canvas>
-                <figcaption>Before <input id="before-color" type="color" value="#ff8000"></figcaption>
-            </figure>
-            <figure>
-                <canvas id="mask-canvas" width="832" height="448"></canvas>
-                <figcaption>Generated mask</figcaption>
-            </figure>
-            <figure>
-                <canvas id="after-canvas" width="832" height="448"></canvas>
-                <figcaption>After <input id="after-color" type="color" value="#00ff80"></figcaption>
-            </figure>
-        </div>
     </div>
+    <!--
     <p>Careful!  There are only 256 possible gray values, so there can only be 256 "steps" in the animation.  A large column delay, or a long duration, will spread the steps out and cause visible ringing.</p>
     <p>Also!  The algorithm this uses is very precise, <em>but</em> assumes that the particle will never need to grow bigger than three times the size of a cell.  If your particle isn't solid in the middle, or you have especially long delays, you may get weird results.</p>
+    -->
 </body>
 </html>

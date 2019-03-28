@@ -209,6 +209,20 @@ class WipePlayer {
         this.time_slider_value = document.createElement('output');
         this.time_slider.parentNode.insertBefore(this.time_slider_value, this.time_slider.nextSibling);
         this.set_time(parseFloat(this.time_slider.value));
+
+        this.duration_slider = document.getElementById('knob-duration');
+        this.duration_slider.addEventListener('input', e => {
+            this.set_duration(parseInt(e.target.value, 10));
+        });
+        this.duration_slider_value = document.getElementById('knob-duration-value');
+        this.set_duration(parseInt(this.duration_slider.value, 10));
+
+        this.ramp_slider = document.getElementById('knob-ramp');
+        this.ramp_slider.addEventListener('input', e => {
+            this.set_ramp(parseInt(e.target.value, 10));
+        });
+        this.ramp_slider_value = document.getElementById('knob-ramp-value');
+        this.set_ramp(parseInt(this.ramp_slider.value, 10));
     }
 
     play() {
@@ -238,6 +252,18 @@ class WipePlayer {
 
         this.time_slider.value = String(t);
         this.time_slider_value.textContent = t.toFixed(3);
+    }
+
+    // Sets duration, as a number of 60fps frames
+    set_duration(duration) {
+        this.duration = duration / 60;
+        this.duration_slider_value.textContent = `${(duration / 60).toFixed(3)} seconds / ${duration} frames`;
+    }
+
+    // Sets ramp, as an integer from 1 to 256
+    set_ramp(ramp) {
+        this.ramp = ramp / 256;
+        this.ramp_slider_value.textContent = `${ramp}/256 ≈ ${(ramp / 256).toFixed(3)}`;
     }
 
     schedule_render() {
@@ -952,11 +978,13 @@ class GeneratorView {
         this.draw_preset_particle('diamond');
 
         // And of course, bind the button
-        document.getElementById('control-generate').addEventListener('click', event => {
+        this.generate_button = document.getElementById('control-generate');
+        this.generate_button.addEventListener('click', event => {
             generate_particle_wipe_mask(this.particle_canvas, mask_canvas, this.settings.rows, this.settings.columns, this.settings.delay, this.get_generator());
         });
 
-
+        // TODO finish, this
+        //this.generate_button.classList.add('dirty');
     }
 
     // Register our interest in a control and do some stuff to it
@@ -1007,15 +1035,16 @@ class GeneratorView {
             for (const control_def of Object.values(this.controls)) {
                 if (control_def.optional) {
                     // FIXME going to parent node to hit the label kiiind of sucks
-                    control_def.control.parentNode.classList.add('hidden');
+                    console.log(control_def.control.parentNode);
+                    control_def.control.parentNode.previousElementSibling.classList.add('hidden');
                 }
             }
 
             for (const control_key of (generator_def.extra_controls || [])) {
-                this.controls[control_key].control.parentNode.classList.remove('hidden');
+                this.controls[control_key].control.parentNode.previousElementSibling.classList.remove('hidden');
             }
             for (const control_key of (generator_def.extra_args || [])) {
-                this.controls[control_key].control.parentNode.classList.remove('hidden');
+                this.controls[control_key].control.parentNode.previousElementSibling.classList.remove('hidden');
             }
         }
     }
@@ -1513,11 +1542,14 @@ function init() {
 
 // TODO:
 // - allow resizing all them canvases (hoo boy)
+// - allow playing in fullscreen
 // - some kinda instructions and notes
 //   - stuff like spiral is a bit goofy with 'delay'
 //   - 3x3 limit + random
 //   - how to save the mask
 //   - how to use this (either as shader or renpy)
+//
+// - fix the fuckin, timing not being right, god
 //
 // - halo support!
 // - need some way of indicating when rows/columns are not remotely proportional
