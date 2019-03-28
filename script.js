@@ -1,6 +1,37 @@
 "use strict";
 const tau = Math.PI * 2;
 
+function range(lo, hi, step) {
+    if (step === undefined) {
+        step = 1;
+    }
+    if (hi === undefined) {
+        hi = lo;
+        lo = 0;
+    }
+
+    return {
+        lo: lo,
+        hi: hi,
+        step: step,
+        pending: lo,
+        next: function() {
+            if (this.pending >= this.hi) {
+                return { done: true };
+            }
+            const value = this.pending;
+            this.pending += this.step;
+            return {
+                done: false,
+                value: value,
+            };
+        },
+        [Symbol.iterator]: function() {
+            return this;
+        },
+    }
+}
+
 // WEBGL HELPER STUFF ----------------------------------------------------------
 
 const vertex_shader_source = `
@@ -604,16 +635,20 @@ class BoxPattern extends PatternGenerator {
     }
 }
 
-// FIXME i would LOVE to have dual spirals as well?
 class SpiralPattern extends PatternGenerator {
-    constructor(row_ct, column_ct, fill_delay, spiral_ct) {
+    constructor(row_ct, column_ct, fill_delay, spiral_ct, arm_ct, angle) {
         super(row_ct, column_ct);
-        // FIXME also accept a start rotation
         this.fill_delay = fill_delay;
         this.spiral_ct = spiral_ct;
+        this.arm_ct = arm_ct;
+        this.angle = angle;  // in turns, 0–1!
 
-        // Width of each spiral (i.e. spacing between them)
-        this.spiral_width = (Math.max(this.row_ct, this.column_ct) / 2) / this.spiral_ct;
+        // Overall radius of the grid
+        // TODO should this be the diagonal?
+        this.radius = Math.max(this.row_ct, this.column_ct) / 2;
+
+        // Width of each spiral (i.e. spacing between them), measured in cells
+        this.spiral_width = this.radius / this.spiral_ct;
 
         // Cells spread outwards from the spiral, but the spiral will
         // eventually wrap around again and start spreading cells back inwards.
@@ -621,26 +656,52 @@ class SpiralPattern extends PatternGenerator {
         // outwards and inwards growing cells
         this.fill_meet = (1 + 1 / this.fill_delay) / 2;
 
-        // FIXME this multiplier is to make 'delay' kinda work, but it should probably do something clever involving guessing how many cells are in a spiral so that they ROUGHLY start one after another, and also maybe we should do that per-cell too
-        this.scale = 16;
+        // Steps are normally integers, counting each cell that appears in
+        // order.  But this relies on a bunch of trig, so the results aren't
+        // integers.  Try our best, though, by scaling up by the circumference
+        // of a spiral with half the maximum radius.
+        this.scale = this.radius / 2 * tau;
     }
 
     _get_max_step() {
-        // FIXME this isn't big enough when fill_delay gets too big, hrrhuguhh, may have to just sample the four corners or something?
-        return this.scale * (this.spiral_ct + (this.fill_delay + 1) / 2);
+        // The furthest away we can get is along a diagonal
+        const dx = this.column_ct / 2 - 1/2;
+        const dy = this.row_ct / 2 - 1/2;
+        const d = Math.sqrt(dx*dx + dy*dy) / this.spiral_width;
+
+        // The math for which corner has the greatest pixel is a little ugly,
+        // so, fuck it; let's just try all four corners and pick the max.  In
+        // practice, this is shockingly accurate, usually over by ~1% and very
+        // rarely under by less than a percent (usually < 0.1%).
+        let base_angle = (Math.atan2(dy, dx) + tau) % (tau / 4);
+        const calc = angle => {
+            let offset = (angle * this.arm_ct / tau - this.angle + 1) % 1;
+            // If the corner we're sampling is past the meet point, we should
+            // back up and use the meet point instead, since it's brighter
+            let d2 = d;
+            if (d < offset) {
+                // Ah, my old nemesis, the innermost spiral
+                if (d > offset * this.fill_meet) {
+                    d2 = offset * this.fill_meet;
+                }
+            }
+            else {
+                const rem = (d - offset) % 1;
+                if (rem > this.fill_meet) {
+                    d2 = d - rem + this.fill_meet;
+                }
+            }
+            return this._calc(d2, angle);
+        };
+        return Math.max(
+            calc(base_angle),
+            calc(tau/2 - base_angle),
+            calc(base_angle + tau/2),
+            calc(tau - base_angle));
     }
 
-    cell(r, c) {
-        const w = this.spiral_width;
-
-        // Coordinates of this cell's center, in grid cells, relative to center
-        const x = (this.column_ct / 2) - (c + 0.5);
-        const y = (this.row_ct / 2) - (r + 0.5);
-        // Distance this cell is from the center, in spiral widths (which are
-        // themselves still measured in grid cells)
-        let d = Math.sqrt(x*x + y*y) / w;
-
-        const theta = Math.atan2(y, x) + tau / 2;
+    _calc(d, theta) {
+        theta = (theta * this.arm_ct + tau * (2 - this.angle)) % tau;
         // How far out spirals start at this angle, in fractions of a spiral (0 to 1)
         const offset = theta / tau;
 
@@ -669,6 +730,21 @@ class SpiralPattern extends PatternGenerator {
         // spiral's arms are filled in outwards, with fill_delay being the time
         // (in full spirals) it takes to spread from one arm to the next
         return this.scale * (t + dist_to_spiral * this.fill_delay);
+    }
+
+    cell(r, c) {
+        const w = this.spiral_width;
+
+        // Coordinates of this cell's center, in grid cells, relative to center
+        const x = (c + 0.5) - (this.column_ct / 2);
+        const y = (r + 0.5) - (this.row_ct / 2);
+        // Distance this cell is from the center, in spiral widths (which are
+        // themselves still measured in grid cells)
+        let d = Math.sqrt(x*x + y*y) / w;
+
+        // Flip y because it points down (since this is an image) but
+        // Math.atan2 thinks it points up
+        return this._calc(d, Math.atan2(-y, x));
     }
 }
 
@@ -796,7 +872,7 @@ const PATTERN_GENERATORS = {
     // "Spiral" is a cool spiral from the center
     spiral: {
         generator: SpiralPattern,
-        extra_args: ['fill-delay', 'spirals'],
+        extra_args: ['fill-delay', 'loops', 'arms', 'angle'],
     },
     // "Random" is, well, random
     random: {
@@ -867,6 +943,20 @@ const PRESET_PARTICLES = {
             ctx.lineTo(x2, y2);
         }
     },
+
+    text(ctx, w, h) {
+        // FIXME do this /before/ clearing the canvas, doofus
+        const letter = prompt("Enter a character:");
+        console.log(letter);
+        if (! letter) {
+            return;
+        }
+        ctx.font = `${h * 0.8}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(letter, w/2, h * 3/4, w);
+    },
+
 };
 
 function inject_file_support(canvas, callback) {
@@ -956,9 +1046,11 @@ class GeneratorView {
         this.bind_control('control-pattern', 'pattern');
         // And optional ones
         this.bind_control('control-direction', 'direction', true);
+        this.bind_control('control-angle', 'angle', true);
         this.bind_control('control-droop', 'droop', true);
         this.bind_control('control-fill-delay', 'fill-delay', true);
-        this.bind_control('control-spirals', 'spirals', true);
+        this.bind_control('control-loops', 'loops', true);
+        this.bind_control('control-arms', 'arms', true);
         // And generic ones
         // TODO maybe these should be hidden for symmetric ones where they don't apply?
         this.bind_control('control-interlace', 'interlace');
@@ -1040,7 +1132,6 @@ class GeneratorView {
             for (const control_def of Object.values(this.controls)) {
                 if (control_def.optional) {
                     // FIXME going to parent node to hit the label kiiind of sucks
-                    console.log(control_def.control.parentNode);
                     control_def.control.parentNode.previousElementSibling.classList.add('hidden');
                 }
             }
@@ -1387,6 +1478,8 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
 
     let ctx = out_canvas.getContext('2d');
     let pixels = ctx.getImageData(0, 0, width, height);
+    let actual_max_step = 0;
+    let actual_min_step = 100;
 
     // FIXME i realize, all of a sudden, that in cases like squares, you likely
     // don't WANT them to keep growing outside their box.  hmm
@@ -1400,6 +1493,8 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
             const col = Math.floor(x / column_width);
             const row = Math.floor(y / row_height);
             const step = generator.cell(row, col);
+            actual_max_step = Math.max(actual_max_step, step);
+            actual_min_step = Math.min(actual_min_step, step);
 
             const start_time = step * delay;
 
@@ -1446,6 +1541,8 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
         }
     }
 
+    console.log("claimed range was", 0, "to", generator.max_step, "but in practice got", actual_min_step, "to", actual_max_step);
+
     ctx.putImageData(pixels, 0, 0);
 
     ctx = null;
@@ -1485,7 +1582,6 @@ function init() {
     // Populate the mask
     // TODO probably ensure the mask is the same size or whatever
     let particle = document.getElementById('particle');
-    //generate_particle_wipe_mask(particle, mask_canvas, 7, 13, 0.0625, 'column');
 
     let view = new GeneratorView(document.querySelector('#generator .particle'), mask_canvas);
 
@@ -1533,32 +1629,33 @@ function init() {
     let player;
     // FIXME why do i get "exceeded 16 live webgl contexts for this principal"???
     let gl = canvas.getContext('webgl');
-    console.log('using gl?', gl);
     if (gl) {
-        //player = new WipePlayerCanvas(canvas, mask_canvas, before_canvas, after_canvas);
         player = new WipePlayerGL(canvas, mask_canvas, before_canvas, after_canvas);
     }
     else {
         player = new WipePlayerCanvas(canvas, mask_canvas, before_canvas, after_canvas);
     }
-    console.log(gl);
 }
 
 
 // TODO:
-// - allow resizing all them canvases (hoo boy)
+// - dropping files seems hit or miss wtf
+// - allow picking resolution (hoo boy)
+//   - should there be a limit?
+//   - obvious thing is to use your own screen size, but how does that work?  clever scaling?
+//   - hold onto dropped before/after files so we can reread them?
 // - allow playing in fullscreen
-// - some kinda instructions and notes
-//   - stuff like spiral is a bit goofy with 'delay'
-//   - 3x3 limit + random
-//   - how to save the mask
-//   - how to use this (either as shader or renpy)
+// - play button inaccessible if your screen is too big, whhhhooops
+// - indicate if using webgl or canvas?
+// - allow forcing canvas?
+// - some stats, like how long the generation/preview took, or fps of the playback?
+// - better error, loading handling
+// - wrap this in a namespace or closure or whatever
 //
-// - fix the fuckin, timing not being right, god
+// - fix the fuckin, timing not being right, god, that's supposed to be the whole point
 //
 // - halo support!
 // - need some way of indicating when rows/columns are not remotely proportional
-// - also, hint that you can change the aspect ratio of stuff like diagonal shutter or spiral by changing the number of rows/cols
 // - also indicate when settings have changed but the wipe hasn't been regenerated yet
 // - changing delay shouldn't redraw the preview
 //   - ideally, changing other settings wouldn't reroll a random wipe...
@@ -1566,7 +1663,19 @@ function init() {
 // - should including the outer border be optional??
 // - allow picking particle size too?  maybe you want, an ellipse, idk
 // - make this a generator and yield intermittently so the browser doesn't like, completely freeze, even if that makes it a bit slower overall
+//   - i tried this and it became 4x slower (!), may need to consider a web worker or something, idk
 // - allow swapping before/after canvases
+//   - or maybe this should be a playback mode?  forward, backward, pingpong
+//
+// ok lemme think instructions
+// - what it does
+// - optionally, how it works
+// - you can upload your own images!
+// - also, hint that you can change the aspect ratio of stuff like diagonal shutter or spiral by changing the number of rows/cols
+//   - stuff like spiral is a bit goofy with 'delay'
+//   - 3x3 limit + random
+//   - how to save the mask
+//   - how to use this (either as shader or renpy)
 //
 // - support hex or tri grids?
 // - support offsetting every other column or something???  that would be cool with hearts!!
