@@ -15,6 +15,11 @@ button {
     min-height: 1.66em;
     text-align: center;
 }
+/* Make color input sorta the same size as regular buttons */
+input[type=color] {
+    box-sizing: content-box;
+    min-height: 1.66em;
+}
 
 #generator {
     display: flex;
@@ -35,8 +40,21 @@ button {
     display: block;
 }
 #generator figure figcaption {
+    display: flex;
     padding: 0.25em 0.5em;
     background: #444;
+    align-items: center;
+    justify-content: space-between;
+}
+#generator figure figcaption input[type=file] {
+    display: none;
+}
+#generator figure.drag-hover canvas {
+    border-color: gold;
+}
+#generator figure.drag-hover figcaption {
+    background-color: gold;
+    color: #444;
 }
 
 #generator .particle {
@@ -71,6 +89,7 @@ button {
 #generator .control-grid input[type=checkbox],
 #generator .control-grid select {
     grid-column: 2 / 4;
+    width: initial;
 }
 #generator .control-grid output {
     grid-column: 3;

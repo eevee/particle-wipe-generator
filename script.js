@@ -1,3 +1,4 @@
+"use strict";
 const tau = Math.PI * 2;
 
 // WEBGL HELPER STUFF ----------------------------------------------------------
@@ -599,7 +600,7 @@ class SpiralPattern extends PatternGenerator {
     }
 
     _get_max_step() {
-        // FIXME this isn't big enough when fill_delay gets too big, hrrhuguhh
+        // FIXME this isn't big enough when fill_delay gets too big, hrrhuguhh, may have to just sample the four corners or something?
         return this.scale * (this.spiral_ct + (this.fill_delay + 1) / 2);
     }
 
@@ -773,7 +774,6 @@ const PATTERN_GENERATORS = {
     },
     // "Random" is, well, random
     random: {
-        // FIXME slightly more complicated
         generator: RandomPattern,
     },
     // TODO radial sweep?
@@ -843,6 +843,60 @@ const PRESET_PARTICLES = {
     },
 };
 
+function inject_file_support(canvas, callback) {
+    const figure = canvas.parentNode;
+    if (figure.tagName !== 'FIGURE') {
+        throw new Error("Expected a figure container");
+    }
+
+    const figcaption = figure.querySelector('figcaption');
+    const original_caption = figcaption.textContent;
+
+    let uploader = document.createElement('input');
+    uploader.type = 'file';
+    figcaption.appendChild(uploader);
+
+    let button = document.createElement('button');
+    button.textContent = '💾';
+    button.addEventListener('click', e => {
+        uploader.click();
+    });
+    figcaption.appendChild(button);
+
+    async function handle_blob(blob) {
+        const bitmap = await createImageBitmap(blob);
+        callback(bitmap, canvas);
+    }
+
+    canvas.addEventListener('dragenter', e => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        figure.classList.add('drag-hover');
+    });
+    canvas.addEventListener('dragover', e => {
+        e.stopPropagation();
+        e.preventDefault();
+    });
+    canvas.addEventListener('dragleave', e => {
+        figure.classList.remove('drag-hover');
+    });
+    canvas.addEventListener('drop', e => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        figure.classList.remove('drag-hover');
+        console.log(e);
+        handle_blob(e.dataTransfer.files[0]);
+    });
+
+    uploader.addEventListener('change', e => {
+        if (e.target.files[0]) {
+            handle_blob(e.target.files[0]);
+        }
+    });
+}
+
 class GeneratorView {
     constructor(container, mask_canvas) {
         this.container = container;
@@ -855,6 +909,14 @@ class GeneratorView {
         this.particle_canvas = document.getElementById('particle-canvas');
         this.preview_canvas = document.getElementById('preview');
         this.preview_ctx = this.preview_canvas.getContext('2d');
+
+        inject_file_support(this.particle_canvas, (bitmap, canvas) => {
+            canvas.width = bitmap.width;
+            canvas.height = bitmap.height;
+            let ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        });
 
         // Bind some required controls
         this.bind_control('control-rows', 'rows');
@@ -893,6 +955,8 @@ class GeneratorView {
         document.getElementById('control-generate').addEventListener('click', event => {
             generate_particle_wipe_mask(this.particle_canvas, mask_canvas, this.settings.rows, this.settings.columns, this.settings.delay, this.get_generator());
         });
+
+
     }
 
     // Register our interest in a control and do some stuff to it
@@ -1392,11 +1456,18 @@ function init() {
     let view = new GeneratorView(document.querySelector('#generator .particle'), mask_canvas);
 
     // Deal with the playback canvases
-    // TODO allow dropping images here
-    // FIXME extend this to webgl too, allow changing colors, etc.
+    function file_handler(bitmap, canvas) {
+        let ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        canvas.dispatchEvent(new Event('_updated'));
+        player.schedule_render();
+    }
+
     let before_canvas = document.getElementById('before-canvas');
+    inject_file_support(before_canvas, file_handler);
     let before_control = document.getElementById('before-color');
-    before_control.addEventListener('change', event => {
+    before_control.addEventListener('input', event => {
         let ctx = before_canvas.getContext('2d');
         ctx.fillStyle = before_control.value;
         ctx.fillRect(0, 0, before_canvas.width, before_canvas.height);
@@ -1410,8 +1481,9 @@ function init() {
     }
 
     let after_canvas = document.getElementById('after-canvas');
+    inject_file_support(after_canvas, file_handler);
     let after_control = document.getElementById('after-color');
-    after_control.addEventListener('change', event => {
+    after_control.addEventListener('input', event => {
         let ctx = after_canvas.getContext('2d');
         ctx.fillStyle = after_control.value;
         ctx.fillRect(0, 0, after_canvas.width, after_canvas.height);
@@ -1440,6 +1512,14 @@ function init() {
 
 
 // TODO:
+// - allow resizing all them canvases (hoo boy)
+// - some kinda instructions and notes
+//   - stuff like spiral is a bit goofy with 'delay'
+//   - 3x3 limit + random
+//   - how to save the mask
+//   - how to use this (either as shader or renpy)
+//
+// - halo support!
 // - need some way of indicating when rows/columns are not remotely proportional
 // - also, hint that you can change the aspect ratio of stuff like diagonal shutter or spiral by changing the number of rows/cols
 // - also indicate when settings have changed but the wipe hasn't been regenerated yet
@@ -1447,8 +1527,9 @@ function init() {
 //   - ideally, changing other settings wouldn't reroll a random wipe...
 // - not sure that i handle rows that don't divide evenly very well yet
 // - should including the outer border be optional??
-// - obviously support dragging files in, and i guess upload button or whatever
+// - allow picking particle size too?  maybe you want, an ellipse, idk
 // - make this a generator and yield intermittently so the browser doesn't like, completely freeze, even if that makes it a bit slower overall
+// - allow swapping before/after canvases
 //
 // - support hex or tri grids?
 // - support offsetting every other column or something???  that would be cool with hearts!!
