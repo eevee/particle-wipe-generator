@@ -40,9 +40,10 @@
             <li><em>spiral</em> — reveal in a spiral, starting from the center.  This one comes with several extra settings!
                 <p><em>Note:</em> This pattern doesn't count cells as neatly as the others, so the behavior of <em>delay</em> and <em>interlace</em> is a bit fuzzier.</p>
             </li>
-            <li><em>random</em> — Completely randomize the grid.  Kind of a work in progress.
+            <li><em>random</em> — completely randomize the grid.  Kind of a work in progress.
                 <p><em>Note:</em> Currently, the generator won't let a particle grow to more than 3× bigger than a cell, assuming that its neighbors will surely have taken over by that point.  Since that isn't the case with a totally random grid, the results here may be ugly.</p>
             </li>
+            <li><em>infect</em> — start from random positions, then spread outwards.</li>
         </ul>
         <p>In addition, there are several modifiers you can use with any pattern:</p>
         <ul>
@@ -153,6 +154,8 @@
                             <option value="box">box</option>
                             <option value="spiral">spiral</option>
                             <option value="random">random</option>
+                            <!-- density? -->
+                            <option value="infect">infect</option>
                             <!-- density? -->
                         </select>
                     </dd>

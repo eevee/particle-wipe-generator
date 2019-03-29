@@ -873,6 +873,79 @@ class RandomPattern extends PatternGenerator {
     }
 }
 
+class InfectPattern extends PatternGenerator {
+    constructor(...args) {
+        super(...args);
+
+        // FIXME configurable?
+        const density = 1/32;
+
+        // Generate an empty grid
+        this.cells = [];
+        for (let r = 0; r < this.row_ct + 2; r++) {
+            this.cells.push(new Array(this.column_ct + 2));
+        }
+
+        // Pick some seed cells
+        const cell_ct = this.row_ct * this.column_ct;
+        const num_seeds = Math.ceil(density * cell_ct);
+        let seen = {};
+        let next_round = [];
+        for (const i of range(num_seeds)) {
+            // FIXME avoid infinite loop here i guess
+            let n = Math.floor(Math.random() * cell_ct);
+            while (seen[n]) {
+                n = Math.floor(Math.random() * cell_ct);
+            }
+            seen[n] = true;
+
+            const r = Math.floor(n / this.column_ct);
+            const c = n % this.column_ct;
+            this.cells[r + 1][c + 1] = 0;
+            next_round.push([r - 1, c]);
+            next_round.push([r + 1, c]);
+            next_round.push([r, c - 1]);
+            next_round.push([r, c + 1]);
+        }
+        console.log("seeds:", next_round);
+
+        // Floodfill!
+        let step = 1;
+        while (next_round.length > 0) {
+            console.log("doing step", step);
+            let this_round = next_round;
+            next_round = [];
+            for (const [r, c] of this_round) {
+                if (r < -1 || r > this.row_ct || c < -1 || c > this.column_ct) {
+                    continue;
+                }
+                if (this.cells[r + 1][c + 1] !== undefined) {
+                    continue;
+                }
+
+                this.cells[r + 1][c + 1] = step;
+                next_round.push([r - 1, c]);
+                next_round.push([r + 1, c]);
+                next_round.push([r, c - 1]);
+                next_round.push([r, c + 1]);
+            }
+
+            step++;
+        }
+
+        Object.defineProperty(this, 'max_step', { value: step - 1 });
+    }
+
+    _get_max_step() {
+        // Not used; calculated dynamically in constructor
+        throw new Error("_get_max_step is unused for InfectPattern");
+    }
+
+    cell(r, c) {
+        return this.cells[r + 1][c + 1];
+    }
+}
+
 // Wrappers that can apply to any type of generator
 class PatternWrapper {
     constructor(pattern) {
@@ -986,6 +1059,13 @@ const PATTERN_GENERATORS = {
     random: {
         generator: RandomPattern,
     },
+    // "Infect" starts like random, but the cells grow outwards from their
+    // starting places
+    infect: {
+        generator: InfectPattern,
+    },
+    // TODO pinch?  like, > <
+    // TODO sliding in rows from opposite sides
     // TODO radial sweep?
     // TODO random splatters?  not really grid-based at all huh
     // TODO shapes sliding across?  also not really grid-based
@@ -1769,8 +1849,7 @@ function init() {
 //   - obvious thing is to use your own screen size, but how does that work?  clever scaling?
 //   - hold onto dropped before/after files so we can reread them?
 // - allow playing in fullscreen
-// - play button inaccessible if your screen is too big, whhhhooops
-//   - speaks to a general issue with layout here, sigh
+// - layout is still not IDEAL, but do i care?  i would love to understand what's up with the flexbox.  maybe should show scaled % or something too
 // - better error, loading, processing handling
 // - wrap this in a namespace or closure or whatever
 // - maybe come up with some more patterns so this feels like it's worth the effort??
