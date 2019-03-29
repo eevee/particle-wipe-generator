@@ -1623,7 +1623,8 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
         }
     }
     stamp_ctx.putImageData(stamp_pixels, 0, 0);
-    document.body.appendChild(stamp_canvas);
+    // FIXME it would be cool to see this somewhere?
+    //document.body.appendChild(stamp_canvas);
 
     // Total time factor, as a multiple of how long a single step takes.
     // If delay is 0, this is 1; if delay is 1, this is the number of steps.
@@ -1862,8 +1863,9 @@ function init() {
 //
 // - support easing function
 //
+// - release source code!!
+//
 // - help is a LITTLE ugly and could stand to be inline too i guess
-// - also, hint that you can change the aspect ratio of stuff like diagonal shutter or spiral by changing the number of rows/cols
 //
 // TODO misc:
 // - should give all the form controls names, so refresh populates them correctly, sigh

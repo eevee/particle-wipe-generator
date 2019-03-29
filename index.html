@@ -24,11 +24,14 @@
         <p>When confronted by a bunch of buttons and knobs, my preferred approach is to start hitting them and see what happens.  But if you're not like me:</p>
         <p><strong>First</strong>, choose a particle to use.</p>
         <ul>
-            <li>To use a preset particle, click one of the buttons on the left.  You can also type any Unicode character, including emoji,  to use that as a particle.</li>
+            <li>To use a preset particle, click one of the buttons on the left.  You can also type any Unicode character, including emoji, to use that as a particle.
+                <p><em>Note:</em> Using a character is a bit hit or miss, due to the difficulty of centering text on a canvas.  It'll work for a quick test, but if you're serious, I recommend creating a text-based particle in an image editor for best results.</p>
+            </li>
             <li>To use your own particle, click the button to choose a file, or drag a file in.  Any size or aspect ratio will work, though larger particles produce better-quality results.  <p><em>Note:</em> Only the alpha channel is used, so your image should have transparency; an opaque image will be treated as a solid rectangle.</p></li>
         </ul>
         <p><em>Note:</em> A particle can be nearly any shape, but any hollow part on the inside will be ignored.  A good rule of thumb is that if you start from the center and draw a line to the outside edge, it should never cross the edge of the shape more than once.  So a star is fine, but a crescent moon will come out goofy.</p>
-        <p><strong>Next</strong>, choose the size of the grid.  All of the patterns are based on chopping the screen into a grid and having a particle grow from the center of each cell; the only difference is in the order of the cells.  A smaller grid will give you a pretty chunky transition, but a larger grid may make it harder to tell what the particle is.</p>
+        <p><strong>Next</strong>, choose the size of the grid.  All of the patterns are based on chopping the screen into a grid and having a particle grow from the center of each cell; the only difference is in the order of the cells.</p>
+        <p>A smaller grid will give you a pretty chunky transition, but a larger grid may make it harder to tell what the particle is.  You can also make the grid a different aspect ratio from the screen, which can have interesting effects, especially with patterns like <em>spiral</em>.  (The particle's aspect ratio is always preserved.)</p>
         <p>At this point you can also set the <em>delay</em>, which controls how long a cell can grow before the next cell can start appearing.  It's measured as a fraction of the time a particle takes to grow and cover its entire cell, so setting it to 0 will drop the pattern entirely and make every particle grow at the same time, whereas setting it to 1 will wait for a cell to fill completely before even starting the next one.  Leaving this at a small but nonzero value is a good idea.</p>
         <p><strong>Next</strong>, choose the pattern you want and fiddle with the settings.  The preview on the right gives you a rough idea of how the transition plays out: it'll start with the black cells and finish with the white cells.  Several patterns are available:</p>
         <ul>
@@ -136,7 +139,7 @@
             <div class="generator-controls">
                 <dl class="control-grid">
                     <dt><label for="control-rows">Rows</label></dt>
-                    <dd><input id="control-rows" type="range" min="1" max="32" value="18"></dd>
+                    <dd><input id="control-rows" type="range" min="1" max="64" value="18"></dd>
 
                     <dt><label for="control-cols">Columns</label></dt>
                     <dd><input id="control-cols" type="range" min="1" max="64" value="32"></dd>
