@@ -3,7 +3,60 @@ body {
     color: white;
     font-family: sans-serif;
     font-size: 20px;
-    margin-bottom: 8em;
+    margin: 0 0 8em;
+}
+
+a {
+    color: gold;
+}
+
+body > header {
+    padding: 1em;
+    margin-bottom: 1em;
+    display: flex;
+    align-items: baseline;
+    background: #222;
+}
+body > header h1 {
+    margin: 0;
+}
+body > header cite {
+    flex: 1;
+    margin: 0 0.5em;
+}
+body > header button {
+    align-self: stretch;
+}
+
+#help {
+    position: fixed;
+    top: 6em;
+    bottom: 2em;
+    left: 2em;
+    right: 2em;
+    overflow: auto;
+    padding: 1em 3em 3em;
+    display: none;
+
+    background: #f0f0f0;
+    color: #222;
+    border: 2px solid #222;
+    border-radius: 0.25em;
+    box-shadow: 0 0.5em 1em #00000080;
+}
+#help.visible {
+    display: inherit;
+}
+#help h2 {
+    border-top: 1px dotted #222;
+    padding-top: 0.5em;
+}
+#help h2:first-child {
+    border-top: none;
+    padding-top: 0;
+}
+#help em {
+    color: black;
 }
 
 input, label, button {

@@ -90,7 +90,6 @@ const fragment_shader_source = `
             else {
                 gl_FragColor = alpha_composite(halo, after_pixel);
             }
-            //gl_FragColor = vec4(alpha, scaled_t, discriminator, 1.0);
         }
     }
 `;
@@ -1740,6 +1739,12 @@ function init() {
         ctx.fillRect(0, 0, after_canvas.width, after_canvas.height);
     }
 
+    let help_button = document.getElementById('show-help');
+    let help = document.getElementById('help');
+    help_button.addEventListener('click', e => {
+        help.classList.toggle('visible');
+    });
+
     let player_cls;
     const params = new URLSearchParams(location.search);
     if (params.has('force-canvas') || ! canvas.getContext('webgl')) {
@@ -1754,7 +1759,11 @@ function init() {
 
 
 // TODO needs fixing before a real release:
+// - i feel like generating should auto-play if you're at the end or something
 // - dropping files seems hit or miss wtf
+//   - can i restrict to images only via some browser feature?
+//   - what happens if i drag in a non-image?
+//   - what happens if i drag from another website?
 // - allow picking resolution (hoo boy)
 //   - should there be a limit?
 //   - obvious thing is to use your own screen size, but how does that work?  clever scaling?
@@ -1770,15 +1779,12 @@ function init() {
 // - finish halo support; canvas and webgl seem to differ a bit
 // - also support alpha, at least on the 'after' image
 //
-// ok lemme think instructions
-// - what it does
-// - optionally, how it works
-// - you can upload your own images!
+// - lol heart preset is still fucked
+//
+// - support easing function
+//
+// - help is a LITTLE ugly and could stand to be inline too i guess
 // - also, hint that you can change the aspect ratio of stuff like diagonal shutter or spiral by changing the number of rows/cols
-//   - stuff like spiral is a bit goofy with 'delay'
-//   - 3x3 limit + random
-//   - how to save the mask
-//   - how to use this (either as shader or renpy)
 //
 // TODO misc:
 // - should give all the form controls names, so refresh populates them correctly, sigh
@@ -1795,6 +1801,7 @@ function init() {
 //   - i tried this and it became 4x slower (!), may need to consider a web worker or something, idk
 // - allow swapping before/after canvases
 //   - or maybe this should be a playback mode?  forward, backward, pingpong
+// - support reading a black/white image instead of alpha
 //
 // - do i need shutter if i have reflect?  alternative, should reflect be a slider?
 // - support uploading your own grayscale cell pattern?

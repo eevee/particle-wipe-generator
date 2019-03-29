@@ -7,8 +7,116 @@
     <script src="script.js"></script>
 </head>
 <body>
-    <h1>Particle wipe generator</h1>
-    <p>It's faster to try it out than to read an explanation.  Click "Generate", then hit the play button at the bottom!</p>
+    <header>
+        <h1>Particle wipe generator</h1>
+        <cite>by <a href="https://eev.ee/">eevee</a></cite>
+        <button id="show-help">❓</button>
+    </header>
+    <article id="help">
+        <h2>What is this?</h2>
+        <p>
+            This is a tool for generating <em>particle wipes</em>, which you might have seen as transitions between parts of video games.
+            I don't know if that's what they're actually called; I've never seen them referred to by name!
+        </p>
+        <p>It's faster to try it out than to read an explanation.  Click "Generate", then hit the play button at the bottom!</p>
+
+        <h2>How do I use it?</h2>
+        <p>When confronted by a bunch of buttons and knobs, my preferred approach is to start hitting them and see what happens.  But if you're not like me:</p>
+        <p><strong>First</strong>, choose a particle to use.</p>
+        <ul>
+            <li>To use a preset particle, click one of the buttons on the left.  You can also type any Unicode character, including emoji,  to use that as a particle.</li>
+            <li>To use your own particle, click the button to choose a file, or drag a file in.  Any size or aspect ratio will work, though larger particles produce better-quality results.  <p><em>Note:</em> Only the alpha channel is used, so your image should have transparency; an opaque image will be treated as a solid rectangle.</p></li>
+        </ul>
+        <p><em>Note:</em> A particle can be nearly any shape, but any hollow part on the inside will be ignored.  A good rule of thumb is that if you start from the center and draw a line to the outside edge, it should never cross the edge of the shape more than once.  So a star is fine, but a crescent moon will come out goofy.</p>
+        <p><strong>Next</strong>, choose the size of the grid.  All of the patterns are based on chopping the screen into a grid and having a particle grow from the center of each cell; the only difference is in the order of the cells.  A smaller grid will give you a pretty chunky transition, but a larger grid may make it harder to tell what the particle is.</p>
+        <p>At this point you can also set the <em>delay</em>, which controls how long a cell can grow before the next cell can start appearing.  It's measured as a fraction of the time a particle takes to grow and cover its entire cell, so setting it to 0 will drop the pattern entirely and make every particle grow at the same time, whereas setting it to 1 will wait for a cell to fill completely before even starting the next one.  Leaving this at a small but nonzero value is a good idea.</p>
+        <p><strong>Next</strong>, choose the pattern you want and fiddle with the settings.  The preview on the right gives you a rough idea of how the transition plays out: it'll start with the black cells and finish with the white cells.  Several patterns are available:</p>
+        <ul>
+            <li><em>wipe</em> — simple straight wipe across the screen.  The extra <em>droop</em> slider will add a jagged edge to the wipe.</li>
+            <li><em>curtain</em> — close in from two adjacent corners.  When done from the top, this resembles a curtain closing.</li>
+            <li><em>shutter</em> — close in from two opposite corners or edges.  This is equivalent to <em>wipe</em> plus the <em>reflect</em> modifier.</li>
+            <li><em>diamond</em> — close in from all four corners at once.</li>
+            <li><em>box</em> — close in from all four edges at once.</li>
+            <li><em>spiral</em> — reveal in a spiral, starting from the center.  This one comes with several extra settings!
+                <p><em>Note:</em> This pattern doesn't count cells as neatly as the others, so the behavior of <em>delay</em> and <em>interlace</em> is a bit fuzzier.</p>
+            </li>
+            <li><em>random</em> — Completely randomize the grid.  Kind of a work in progress.
+                <p><em>Note:</em> Currently, the generator won't let a particle grow to more than 3× bigger than a cell, assuming that its neighbors will surely have taken over by that point.  Since that isn't the case with a totally random grid, the results here may be ugly.</p>
+            </li>
+        </ul>
+        <p>In addition, there are several modifiers you can use with any pattern:</p>
+        <ul>
+            <li><em>interlace</em> — reveal the first cells, then the third cells, then the fifth, and so on; once all the odd cells are done, start over with the second cells, then the fourth cells, etc.</li>
+            <li><em>reflect</em> — reveal the last cells at the same time as the first cells, the second-to-last cells at the same time as the second cells, and so on.  This modifier transforms <em>wipe</em> into <em>shutter</em>.</li>
+            <li><em>reverse</em> — reverse the order of cells.</li>
+            <li><em>mirror</em> — flip the entire grid horizontally.</li>
+            <li><em>flip</em> — flip the entire grid vertically.</li>
+        </ul>
+        <p><strong>Finally</strong>, check that the preview looks good, and click <em>Generate</em>!  It might take a few seconds; please be patient.  Then play back your transition to see if it's to your liking.</p>
+        <p>You can change the colors the example transition uses, or even provide your own before/after images!</p>
+
+        <h2>How do I put this in a game?</h2>
+        <p>The important thing this tool generates is the <em>mask</em>, which you can find to the right of the player.  Right-click it to save it somewhere.</p>
+        <p>If you're using Ren'Py, you can feed the mask to <a href="https://www.renpy.org/doc/html/transitions.html#ImageDissolve"><code>ImageDissolve</code></a> and then use it like any other named transition.  Done!</p>
+        <p>If you're using anything else, you may need to write your own shader.  It's pretty easy!  Here's a trimmed-down and commented-up version of the shader used on this very page:</p>
+        <pre>    precision mediump float;
+
+    uniform sampler2D mask;
+    uniform sampler2D before;
+    uniform sampler2D after;
+    // This is the progress through the transition, from 0 to 1
+    uniform float t;
+    // This is the "ramp" slider from under the player
+    uniform float ramp;
+
+    // These are the texture coordinates from the vertex shader.  Depending on
+    // the exact effect you want, you might want to use screen coordinates, or
+    // something else entirely.
+    varying vec2 tex_coords;
+
+    // I suppose this wouldn't be necessary if you had premultiplied alpha, but
+    // who does that, right?
+    vec4 alpha_composite(vec4 top, vec4 bottom) {
+        float alpha = top.a + bottom.a * (1.0 - top.a);
+        return vec4((top.rgb * top.a + bottom.rgb * (bottom.a * (1.0 - top.a))) / alpha, alpha);
+    }
+
+    void main() {
+        // Sample the same spot in before, after, and the mask itself...
+        vec4 before_pixel = texture2D(before, tex_coords);
+        vec4 after_pixel = texture2D(after, tex_coords);
+        vec4 mask_pixel = texture2D(mask, tex_coords);
+        // Collect all the mask channels together into a single value
+        float discriminator = mask_pixel.r + mask_pixel.g / 256.0 + mask_pixel.b / 65536.0;
+        // The ramp adds a little fuzz around the current value.  This scales t
+        // so that 0 means just before the first hint of the ramp appears;
+        // otherwise, half a ramp would abruptly appear when the effect starts.
+        float scaled_t = t * (1.0 + ramp * 2.0) - ramp;
+        // This is the alpha of the "after" image.
+        float alpha = clamp((scaled_t - discriminator) / ramp + 0.5, 0.0, 1.0);
+        // Multiply, in case it already has its own alpha.
+        after_pixel.a *= alpha;
+        // Finally, composite!
+        // You might also want to draw the "after" image on top of some
+        // existing scene, rather than combining before/after in a single
+        // shader.  In that case, just use after_pixel directly here, and
+        // delete all the "before" stuff.
+        gl_FragColor = alpha_composite(after_pixel, before_pixel);
+    }</pre>
+        <p><em>Note:</em> The above example shader doesn't support a halo.  It's not hard to add; peek at my source code!</p>
+
+        <h2>How does it work?</h2>
+        <p>The generated mask defines the order in which pixels appear.  That's all.</p>
+        <p>Hmm, I should explain this more, sometime.</p>
+        <!-- FIXME do, that -->
+
+        <h2>FAQ</h2>
+        <p>That means "frequently apprehended questions".</p>
+        <p>
+            <em>Why does the mask look so weird?</em><br>
+            Usually masks like this are grayscale, but that limits them to only 256 values.  I've used all three color channels here, which increases that range to 16,777,216 values!  Don't worry, it should still work with Ren'Py or a shader that expects a grayscale image — they'll just read the red channel and ignore the extra precision, which is like rounding off extra decimal places.
+        </p>
+    </article>
     <div id="generator">
         <div class="generation">
             <div class="particle">
