@@ -1100,11 +1100,23 @@ const PRESET_PARTICLES = {
 
     // FIXME this is, broken
     heart(ctx, w, h) {
-        ctx.moveTo(0, h/2);
-        ctx.lineTo(w/2, h);
-        ctx.lineTo(w, h/2);
-        ctx.arc(w*3/4, h/4, w/4, tau/8, 4*tau/8, true);
-        ctx.arc(w/4, h/4, w/4, 7*tau/8, 3*tau/8, true);
+        // I have drawn a heart diagram on paper, trust me
+        const radius = 32;
+        const sqrt2 = Math.sqrt(2);
+        const r_rt2 = radius * sqrt2;
+        // Drawing the heart is ugly enough, so fit it to the canvas via scale
+        const hw = radius * (2 + sqrt2);
+        const hh = radius * (1 + 1.5 * sqrt2);
+        ctx.translate(w/2, h * (1 + 2 * sqrt2) / 7);
+        ctx.scale(w / hw, h / hh);
+        // Start with the square: left to bottom to right, centered on the
+        // center of the square
+        ctx.moveTo(-r_rt2, 0);
+        ctx.lineTo(0, r_rt2);
+        ctx.lineTo( r_rt2, 0);
+        // Now the L O B E S
+        ctx.arc(+r_rt2/2, -r_rt2/2, radius, tau * 1/8, tau * 5/8, true);
+        ctx.arc(-r_rt2/2, -r_rt2/2, radius, tau * 7/8, tau * 3/8, true);
     },
 
     // TODO extend into generic polygon/star?
@@ -1343,11 +1355,13 @@ class GeneratorView {
         const ctx = this.particle_canvas.getContext('2d');
         const w = this.particle_canvas.width;
         const h = this.particle_canvas.height;
+        ctx.save();
         ctx.clearRect(0, 0, w, h);
         ctx.beginPath();
         draw(ctx, w, h);
         ctx.closePath();
         ctx.fill();
+        ctx.restore();
     }
 
     get_generator() {
@@ -1839,7 +1853,10 @@ function init() {
 }
 
 
-// TODO needs fixing before a real release:
+// TODO needs fixing more soonly:
+// - put this (and cherry kisses etc, oh i need a standard 18+ overlay huh) on eev.ee
+// - put this on itch!
+//
 // - i feel like generating should auto-play if you're at the end or something
 // - dropping files seems hit or miss wtf
 //   - can i restrict to images only via some browser feature?
@@ -1858,8 +1875,6 @@ function init() {
 // - fix the fuckin, timing not being right, god, that's supposed to be the whole point
 // - finish halo support; canvas and webgl seem to differ a bit
 // - also support alpha, at least on the 'after' image
-//
-// - lol heart preset is still fucked
 //
 // - support easing function
 //
