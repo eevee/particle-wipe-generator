@@ -912,7 +912,6 @@ class InfectPattern extends PatternGenerator {
         // Floodfill!
         let step = 1;
         while (next_round.length > 0) {
-            console.log("doing step", step);
             let this_round = next_round;
             next_round = [];
             for (const [r, c] of this_round) {
@@ -1582,7 +1581,7 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
 
             // Now find the point at which the expanding particle would touch
             const ix = pcx + dx / scale;
-            const iy = pcx + dy / scale;
+            const iy = pcy + dy / scale;
 
             let hit_scale = 0;
             for (const [ax, ay] of trace_line(ix, iy, pcx, pcy)) {
@@ -1593,7 +1592,7 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
                     continue;
 
                 const alpha = particle_pixels.data[(ax + ay * particle_width) * 4 + 3];
-                // TODO multiply by the alpha of the line?  can we get that?
+                // FIXME should interpolate cleverly using the alpha and the distance from the line and etc
                 if (alpha < 128) {
                     continue;
                 }
@@ -1603,7 +1602,7 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
                 // how much bigger the particle needs to be for this point to become
                 // visible
                 const dist_to_entry2 = Math.pow(ix - pcx, 2) + Math.pow(iy - pcy, 2);
-                const dist_to_hit2 = Math.pow(ax - pcx, 2) + Math.pow(ay - pcy, 2);
+                const dist_to_hit2 = Math.pow((ax + 0.5) - pcx, 2) + Math.pow((ay + 0.5) - pcy, 2);
                 hit_scale = Math.sqrt(dist_to_entry2 / dist_to_hit2);
                 break;
             }
