@@ -1441,8 +1441,15 @@ class GeneratorView {
     }
 }
 
-function* trace_line(x0, y0, x1, y1) {
+// Raycast from a point on the edge of an image towards its center, and return
+// the coordinate of the first opaque pixel hit.
+function raycast_to_opaque_pixel(entry_x, entry_y, width, height, pixeldata) {
     "use strict";
+    let x0 = entry_x;
+    let y0 = entry_y;
+    let x1 = width / 2;
+    let y1 = height / 2;
+
     let dx = x1 - x0;
     let dy = y1 - y0;
 
@@ -1451,8 +1458,7 @@ function* trace_line(x0, y0, x1, y1) {
 
     if (dx === 0 && dy === 0) {
         // Special case: this is a single pixel
-        yield [a, b];
-        return;
+        return [a, b];
     }
 
     // Use a modified Bresenham.  Use mirroring to move everything into the
@@ -1501,15 +1507,30 @@ function* trace_line(x0, y0, x1, y1) {
     let min_y = Math.floor(Math.min(y0, y1));
     let max_y = Math.floor(Math.max(y0, y1));
 
+    // Shared code to check whether the current (a, b) pair is opaque, ish
+    function is_opaque() {
+        // If the image is N pixels wide and the entry point is on its right
+        // edge, then we start from pixel N, which is actually outside the
+        // image!  So, skip that.
+        if (a >= width || b >= height)
+            return false;
+
+        const alpha = pixeldata[(a + b * width) * 4 + 3];
+        // FIXME should interpolate cleverly using the alpha and the distance from the line and etc
+        return (alpha >= 128);
+    }
+
     if (dx > dy) {
         // Main axis is x/a
         while (min_x <= a && a <= max_x && min_y <= b && b <= max_y) {
-            yield [a, b];
+            if (is_opaque())
+                return [a, b];
 
             if (err > 0) {
                 err -= dx;
                 b += step_b;
-                yield [a, b];
+                if (is_opaque())
+                    return [a, b];
             }
             err += dy;
             a += step_a;
@@ -1519,17 +1540,22 @@ function* trace_line(x0, y0, x1, y1) {
         err = -err;
         // Main axis is y/b
         while (min_x <= a && a <= max_x && min_y <= b && b <= max_y) {
-            yield [a, b];
+            if (is_opaque())
+                return [a, b];
 
             if (err > 0) {
                 err -= dy;
                 a += step_a;
-                yield [a, b];
+                if (is_opaque())
+                    return [a, b];
             }
             err += dx;
             b += step_b;
         }
     }
+
+    // If we never found anything, just return the center
+    return [x1, y1];
 }
 
 // FIXME hey, if they only change the pattern/delay but not the stamp, there's no need to regenerate it...
@@ -1583,29 +1609,13 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
             const ix = pcx + dx / scale;
             const iy = pcy + dy / scale;
 
-            let hit_scale = 0;
-            for (const [ax, ay] of trace_line(ix, iy, pcx, pcy)) {
-                // If the particle is N pixels wide and hits us on its right
-                // side, then we start from pixel N, which is actually outside
-                // the particle!  So, skip that.
-                if (ax >= particle_width || ay >= particle_height)
-                    continue;
-
-                const alpha = particle_pixels.data[(ax + ay * particle_width) * 4 + 3];
-                // FIXME should interpolate cleverly using the alpha and the distance from the line and etc
-                if (alpha < 128) {
-                    continue;
-                }
-
-                // Found a point!  Find the distance from the center to the entry
-                // point, and the center to the found point; the ratio of those is
-                // how much bigger the particle needs to be for this point to become
-                // visible
-                const dist_to_entry2 = Math.pow(ix - pcx, 2) + Math.pow(iy - pcy, 2);
-                const dist_to_hit2 = Math.pow((ax + 0.5) - pcx, 2) + Math.pow((ay + 0.5) - pcy, 2);
-                hit_scale = Math.sqrt(dist_to_entry2 / dist_to_hit2);
-                break;
-            }
+            let [ax, ay] = raycast_to_opaque_pixel(ix, iy, particle_width, particle_height, particle_pixels.data);
+            // Find the distance from the center to the entry point, and the
+            // center to the found point; the ratio of those is how much bigger
+            // the particle needs to be for this point to become visible
+            const dist_to_entry2 = Math.pow(ix - pcx, 2) + Math.pow(iy - pcy, 2);
+            const dist_to_hit2 = Math.pow((ax + 0.5) - pcx, 2) + Math.pow((ay + 0.5) - pcy, 2);
+            const hit_scale = Math.sqrt(dist_to_entry2 / dist_to_hit2);
 
             const necessary_scale = scale * hit_scale;
             box_scale_row.push(necessary_scale);
