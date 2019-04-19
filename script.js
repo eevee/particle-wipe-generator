@@ -1442,7 +1442,8 @@ class GeneratorView {
 }
 
 // Raycast from a point on the edge of an image towards its center, and return
-// the coordinate of the first opaque pixel hit.
+// the distance travelled, as a fraction of the distance between the entry
+// point and the center.
 function raycast_to_opaque_pixel(entry_x, entry_y, width, height, pixeldata) {
     "use strict";
     let x0 = entry_x;
@@ -1524,13 +1525,13 @@ function raycast_to_opaque_pixel(entry_x, entry_y, width, height, pixeldata) {
         // Main axis is x/a
         while (min_x <= a && a <= max_x && min_y <= b && b <= max_y) {
             if (is_opaque())
-                return [a, b];
+                break;
 
             if (err > 0) {
                 err -= dx;
                 b += step_b;
                 if (is_opaque())
-                    return [a, b];
+                    break;
             }
             err += dy;
             a += step_a;
@@ -1541,21 +1542,24 @@ function raycast_to_opaque_pixel(entry_x, entry_y, width, height, pixeldata) {
         // Main axis is y/b
         while (min_x <= a && a <= max_x && min_y <= b && b <= max_y) {
             if (is_opaque())
-                return [a, b];
+                break;
 
             if (err > 0) {
                 err -= dy;
                 a += step_a;
                 if (is_opaque())
-                    return [a, b];
+                    break;
             }
             err += dx;
             b += step_b;
         }
     }
 
-    // If we never found anything, just return the center
-    return [x1, y1];
+    // Return how far along the ray we got, relative to the distance to the
+    // center.  (Dividing first saves us a square root.)
+    const dist_to_entry2 = dx * dx + dy * dy;
+    const dist_to_hit2 = Math.pow((a + 0.5) - x1, 2) + Math.pow((b + 0.5) - y1, 2);
+    return Math.sqrt(dist_to_entry2 / dist_to_hit2);
 }
 
 // FIXME hey, if they only change the pattern/delay but not the stamp, there's no need to regenerate it...
@@ -1608,15 +1612,9 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
             // Now find the point at which the expanding particle would touch
             const ix = pcx + dx / scale;
             const iy = pcy + dy / scale;
-
-            let [ax, ay] = raycast_to_opaque_pixel(ix, iy, particle_width, particle_height, particle_pixels.data);
-            // Find the distance from the center to the entry point, and the
-            // center to the found point; the ratio of those is how much bigger
-            // the particle needs to be for this point to become visible
-            const dist_to_entry2 = Math.pow(ix - pcx, 2) + Math.pow(iy - pcy, 2);
-            const dist_to_hit2 = Math.pow((ax + 0.5) - pcx, 2) + Math.pow((ay + 0.5) - pcy, 2);
-            const hit_scale = Math.sqrt(dist_to_entry2 / dist_to_hit2);
-
+            // And figure out how far into the particle that is
+            let hit_scale = raycast_to_opaque_pixel(ix, iy, particle_width, particle_height, particle_pixels.data);
+            // Thus, this is the minimum scale of the particle for it to reach us
             const necessary_scale = scale * hit_scale;
             box_scale_row.push(necessary_scale);
         }
