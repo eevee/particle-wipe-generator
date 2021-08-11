@@ -206,6 +206,11 @@
                     <canvas id="preview" width="384" height="216"></canvas>
                     <figcaption>Preview</figcaption>
                 </figure>
+                <label for="mask_type">Mask type</label>
+                <select id="mask_type">
+                    <option value="color" selected>Color</option>
+                    <option value="grayscale">Grayscale</option>
+                </select>
                 <button id="control-generate">Generate</button>
             </div>
         </div>
@@ -251,7 +256,7 @@
                     <figcaption>Before <input id="before-color" type="color" value="#ff8000"></figcaption>
                 </figure>
                 <figure>
-                    <canvas id="mask-canvas" width="1280" height="720"></canvas>
+                    <canvas id="mask-canvas" width="1920" height="1080"></canvas>
                     <figcaption>Generated mask</figcaption>
                 </figure>
                 <figure>
