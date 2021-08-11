@@ -15,7 +15,7 @@ function range(lo, hi, step) {
         hi: hi,
         step: step,
         pending: lo,
-        next: function() {
+        next: function () {
             if (this.pending >= this.hi) {
                 return { done: true };
             }
@@ -26,7 +26,7 @@ function range(lo, hi, step) {
                 value: value,
             };
         },
-        [Symbol.iterator]: function() {
+        [Symbol.iterator]: function () {
             return this;
         },
     }
@@ -105,7 +105,7 @@ class Shader {
         gl.attachShader(program, vertex_shader);
         gl.attachShader(program, fragment_shader);
         gl.linkProgram(program);
-        if (! gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
             console.error(gl.getProgramInfoLog(program));
             gl.deleteProgram(program);
             throw new Error("Failed to link program");
@@ -155,7 +155,7 @@ class Shader {
         gl.shaderSource(shader, source);
         gl.compileShader(shader);
 
-        if (! gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
             console.error(gl.getShaderInfoLog(shader));
             gl.deleteShader(shader);
             throw new Error("Failed to compile shader");
@@ -167,7 +167,7 @@ class Shader {
     send(name, value) {
         const gl = this.gl;
         let uniform = this.uniforms[name];
-        if (! uniform) {
+        if (!uniform) {
             throw new Error(`No such uniform: ${name}`);
         }
 
@@ -235,7 +235,7 @@ class WipePlayer {
         });
 
         this.t = 0;
-        this.ramp = 4/256;
+        this.ramp = 4 / 256;
         this.duration = 2;
 
         this.playing = false;
@@ -286,7 +286,7 @@ class WipePlayer {
             }
         });
         this.halo_checkbox.addEventListener('input', e => {
-            this.halo_picker.disabled = ! this.halo_checkbox.checked;
+            this.halo_picker.disabled = !this.halo_checkbox.checked;
             if (this.halo_checkbox.checked) {
                 this.set_halo(this.halo_picker.value);
             }
@@ -295,7 +295,7 @@ class WipePlayer {
             }
         });
         // FIXME Can we stop copy/pasting the event handlers
-        this.halo_picker.disabled = ! this.halo_checkbox.checked;
+        this.halo_picker.disabled = !this.halo_checkbox.checked;
         if (this.halo_checkbox.checked) {
             this.set_halo(this.halo_picker.value);
         }
@@ -764,9 +764,9 @@ class SpiralPattern extends PatternGenerator {
 
     _get_max_step() {
         // The furthest away we can get is along a diagonal
-        const dx = this.column_ct / 2 - 1/2;
-        const dy = this.row_ct / 2 - 1/2;
-        const d = Math.sqrt(dx*dx + dy*dy) / this.spiral_width;
+        const dx = this.column_ct / 2 - 1 / 2;
+        const dy = this.row_ct / 2 - 1 / 2;
+        const d = Math.sqrt(dx * dx + dy * dy) / this.spiral_width;
 
         // The math for which corner has the greatest pixel is a little ugly,
         // so, fuck it; let's just try all four corners and pick the max.  In
@@ -794,8 +794,8 @@ class SpiralPattern extends PatternGenerator {
         };
         return Math.max(
             calc(base_angle),
-            calc(tau/2 - base_angle),
-            calc(base_angle + tau/2),
+            calc(tau / 2 - base_angle),
+            calc(base_angle + tau / 2),
             calc(tau - base_angle));
     }
 
@@ -839,7 +839,7 @@ class SpiralPattern extends PatternGenerator {
         const y = (r + 0.5) - (this.row_ct / 2);
         // Distance this cell is from the center, in spiral widths (which are
         // themselves still measured in grid cells)
-        let d = Math.sqrt(x*x + y*y) / w;
+        let d = Math.sqrt(x * x + y * y) / w;
 
         // Flip y because it points down (since this is an image) but
         // Math.atan2 thinks it points up
@@ -878,7 +878,7 @@ class InfectPattern extends PatternGenerator {
         super(...args);
 
         // FIXME configurable?
-        const density = 1/32;
+        const density = 1 / 32;
 
         // Generate an empty grid
         this.cells = [];
@@ -1087,14 +1087,14 @@ function generate_cell_pattern(rows, cols, pattern_generator) {
 
 const PRESET_PARTICLES = {
     diamond(ctx, w, h) {
-        ctx.moveTo(0, h/2);
-        ctx.lineTo(w/2, 0);
-        ctx.lineTo(w, h/2);
-        ctx.lineTo(w/2, h);
+        ctx.moveTo(0, h / 2);
+        ctx.lineTo(w / 2, 0);
+        ctx.lineTo(w, h / 2);
+        ctx.lineTo(w / 2, h);
     },
 
     circle(ctx, w, h) {
-        ctx.ellipse(w/2, h/2, w/2, h/2, 0, 0, tau);
+        ctx.ellipse(w / 2, h / 2, w / 2, h / 2, 0, 0, tau);
     },
 
     // FIXME this is, broken
@@ -1106,26 +1106,26 @@ const PRESET_PARTICLES = {
         // Drawing the heart is ugly enough, so fit it to the canvas via scale
         const hw = radius * (2 + sqrt2);
         const hh = radius * (1 + 1.5 * sqrt2);
-        ctx.translate(w/2, h * (1 + 2 * sqrt2) / 7);
+        ctx.translate(w / 2, h * (1 + 2 * sqrt2) / 7);
         ctx.scale(w / hw, h / hh);
         // Start with the square: left to bottom to right, centered on the
         // center of the square
         ctx.moveTo(-r_rt2, 0);
         ctx.lineTo(0, r_rt2);
-        ctx.lineTo( r_rt2, 0);
+        ctx.lineTo(r_rt2, 0);
         // Now the L O B E S
-        ctx.arc(+r_rt2/2, -r_rt2/2, radius, tau * 1/8, tau * 5/8, true);
-        ctx.arc(-r_rt2/2, -r_rt2/2, radius, tau * 7/8, tau * 3/8, true);
+        ctx.arc(+r_rt2 / 2, -r_rt2 / 2, radius, tau * 1 / 8, tau * 5 / 8, true);
+        ctx.arc(-r_rt2 / 2, -r_rt2 / 2, radius, tau * 7 / 8, tau * 3 / 8, true);
     },
 
     // TODO extend into generic polygon/star?
     star(ctx, w, h) {
-        const r = w/2;
+        const r = w / 2;
         // Ratio of the inner (dimple) radius to the outer radius
         const r2 = r * Math.sqrt((7 - 3 * Math.sqrt(5)) / 2);
         // Surprise!  This vertically centers the star
-        const x0 = w/2;
-        const y0 = h/2 + r2 / 4;
+        const x0 = w / 2;
+        const y0 = h / 2 + r2 / 4;
         for (let i = 0; i < 5; i++) {
             const x = x0 + r * Math.cos(tau * (0.75 + i / 5));
             const y = y0 + r * Math.sin(tau * (0.75 + i / 5));
@@ -1147,13 +1147,13 @@ const PRESET_PARTICLES = {
         // FIXME do this /before/ clearing the canvas, doofus
         const letter = prompt("Enter a character:");
         console.log(letter);
-        if (! letter) {
+        if (!letter) {
             return;
         }
         ctx.font = `${h * 0.8}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
-        ctx.fillText(letter, w/2, h * 3/4, w);
+        ctx.fillText(letter, w / 2, h * 3 / 4, w);
     },
 
 };
@@ -1324,7 +1324,7 @@ class GeneratorView {
         // If the pattern changed, we need to update the optional controls
         if (attr === 'pattern') {
             const generator_def = PATTERN_GENERATORS[value];
-            if (! generator_def) {
+            if (!generator_def) {
                 // FIXME better error?
                 return;
             }
@@ -1347,7 +1347,7 @@ class GeneratorView {
 
     draw_preset_particle(shape) {
         const draw = PRESET_PARTICLES[shape];
-        if (! draw) {
+        if (!draw) {
             return;
         }
 
@@ -1371,7 +1371,7 @@ class GeneratorView {
         for (const key of generator_def.extra_controls || []) {
             const value = this.settings[key];
             generator_tree = generator_tree[value];
-            if (! generator_tree) {
+            if (!generator_tree) {
                 throw new Error(`Can't find a generator for ${key} = ${value}`);
             }
         }
@@ -1569,7 +1569,7 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
     const height = out_canvas.height;
     const column_width = Math.ceil(width / column_ct);
     const row_height = Math.ceil(height / row_ct);
-
+    const mask_type = document.getElementById('mask_type').value;
     const particle_width = particle_canvas.width;
     const particle_height = particle_canvas.height;
     let particle_ctx = particle_canvas.getContext('2d');
@@ -1747,9 +1747,11 @@ function generate_particle_wipe_mask(particle_canvas, out_canvas, row_ct, column
 
             value *= 256;
             pixels.data[i + 0] = Math.floor(value);
-            value = (value % 1) * 256;
+            if (mask_type == "color")
+                value = (value % 1) * 256;
             pixels.data[i + 1] = Math.floor(value);
-            value = (value % 1) * 256;
+            if (mask_type == "color")
+                value = (value % 1) * 256;
             pixels.data[i + 2] = Math.floor(value);
             pixels.data[i + 3] = 255;
             i += 4;
@@ -1849,7 +1851,7 @@ function init() {
 
     let player_cls;
     const params = new URLSearchParams(location.search);
-    if (params.has('force-canvas') || ! canvas.getContext('webgl')) {
+    if (params.has('force-canvas') || !canvas.getContext('webgl')) {
         player_cls = WipePlayerCanvas;
     }
     else {
